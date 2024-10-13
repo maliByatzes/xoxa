@@ -1,0 +1,5 @@
+*.o
+*.so
+bin/
+client/*.o
+server/*.o
