@@ -1,9 +1,7 @@
 /* server.c */
 
-#include "xoxa.h"
+#include "server.h"
 
-int main()
-{
-  printf("Hello, Server!\n");
-  return 0;
+int add(int a, int b) {
+  return a + b;
 }

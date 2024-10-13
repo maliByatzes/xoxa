@@ -8,13 +8,13 @@ EXE_DIR=../bin
 
 EXE= ${EXE_DIR}/server
 
-${EXE_DIR}/%: %.o
-	${CC} -o $@ $< ${LIBS}
+${EXE_DIR}/%: *.o
+	${CC} -o $@ $^ ${LIBS}
 
 %.o: ${SRC_DIR}/%.c
-	${CC} -o $@ -c $< ${LIBS}
+	${CC} -c $^ ${LIBS}
 
 all:		${EXE}
 
 clean:
-	@rm -rf ${EXE}
+	@rm -rf ${EXE} *.o
