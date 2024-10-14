@@ -231,6 +231,58 @@ void run_server(SOCKET connfd, NodeClient *head)
           // Read in the message
           // Search the linked for the combination of ip_address & port
           // Send the message to that clientfd if found
+
+          char read[2048];
+          int bytes_read = recv(i, read, 2048, 0);
+          if (bytes_read < 1) {
+            FD_CLR(i, &master);
+            CLOSESOCKET(i);
+            continue;
+          }
+
+          char buf[100];
+          char address_buffer[100];
+          char service_buffer[100];
+          int j = 0;
+
+          memset(buf, 0, sizeof(buf));
+          while (j < bytes_read && read[j] != ' ') {
+            strncat(buf, &read[j], 1);
+            i++;
+          }
+
+          printf("1 - Buf: %s\n", buf);
+          memset(address_buffer, 0, sizeof(address_buffer));
+          strncpy(address_buffer, buf, strlen(buf));
+
+          memset(buf, 0, sizeof(buf));
+          while(j < bytes_read && read[j] != '\n') {
+            strncat(buf, &read[j], 1);
+            i++;
+          }
+
+          printf("2 - Buf: %s\n", buf);
+          memset(service_buffer, 0, sizeof(service_buffer));
+          strncpy(service_buffer, buf, strlen(buf));
+
+          SOCKET destfd = 0;
+          NodeClient *temp = head;
+          while (temp->next != NULL) {
+            if (strcmp(temp->data->ip_address, address_buffer) == 0) {
+              if (strcmp(temp->data->port, service_buffer) == 0) {
+                destfd = temp->data->clientfd;
+              }
+            }
+            temp = temp->next;
+          }
+
+          // cut the first line of `read`
+          if (destfd != 0) {
+            send(destfd, read, bytes_read, 0);
+          } else {
+            char msg[] = "destination user does not exist.";
+            send(i, msg, strlen(msg), 0);
+          }
         }
 
       }
