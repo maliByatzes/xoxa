@@ -8,7 +8,7 @@ Client *newClient(SOCKET clientfd, char *hostname, char *ip_address, char *port)
 
   this->clientfd = clientfd;
   strcpy(this->hostname, hostname);
-  strcpy(this->ip_address, hostname);
+  strcpy(this->ip_address, ip_address);
   strcpy(this->port, port);
 
   return this;
@@ -38,7 +38,6 @@ void insertAtEnd(NodeClient **head, Client *data)
 {
   NodeClient *newNC = newNodeClient(data);
   if (*head == NULL) {
-    printf("head is null, set then return...\n");
     *head = newNC;
     return;
   }
@@ -282,17 +281,16 @@ void run_server(SOCKET connfd)
             j++;
           }
 
-          printf("1 - Buf: %s\n", buf);
           memset(address_buffer, 0, sizeof(address_buffer));
           strncpy(address_buffer, buf, strlen(buf));
 
           memset(buf, 0, sizeof(buf));
+          j++;
           while(j < bytes_read && read[j] != '\n') {
             strncat(buf, &read[j], 1);
             j++;
           }
 
-          printf("2 - Buf: %s\n", buf);
           memset(service_buffer, 0, sizeof(service_buffer));
           strncpy(service_buffer, buf, strlen(buf));
 
@@ -307,10 +305,12 @@ void run_server(SOCKET connfd)
             temp = temp->next;
           }
 
-          // cut the first line of `read`
-          printf("destfd: %d\n", destfd);
           if (destfd != 0) {
-            send(destfd, read, bytes_read, 0);
+            char *after = strchr(read, '\n');
+            if (after != NULL) {
+              after++;
+              send(destfd, after, strlen(after), 0);
+            }
           } else {
             char msg[] = "destination user does not exist.\n";
             send(i, msg, strlen(msg), 0);

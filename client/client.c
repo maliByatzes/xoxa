@@ -93,11 +93,7 @@ int main(int argc, char ** argv)
         char read[4096];
         char msg[2048];
         if (!fgets(read, 4096, stdin)) break;
-
-        printf("Dest buf: %s", read);
-
         if (!fgets(msg, 2048, stdin)) break;
-
         strncat(read, msg, strlen(msg));
 
         printf("Sending: %s", read);
