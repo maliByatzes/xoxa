@@ -7,9 +7,9 @@ Client *newClient(SOCKET clientfd, char *hostname, char *ip_address, char *port)
   Client *this = (Client*)malloc(sizeof(Client));
 
   this->clientfd = clientfd;
-  this->hostname = hostname;
-  this->ip_address = ip_address;
-  this->port = port;
+  strcpy(this->hostname, hostname);
+  strcpy(this->ip_address, hostname);
+  strcpy(this->port, port);
 
   return this;
 }
@@ -38,6 +38,7 @@ void insertAtEnd(NodeClient **head, Client *data)
 {
   NodeClient *newNC = newNodeClient(data);
   if (*head == NULL) {
+    printf("head is null, set then return...\n");
     *head = newNC;
     return;
   }
@@ -63,7 +64,7 @@ void insertAtPosition(NodeClient **head, Client *data, int position)
 
   if (temp == NULL) {
     fprintf(stderr, "Position out of range\n");
-    free(newNC->data);
+    deleteClient(newNC->data);
     free(newNC);
     return;
   }
@@ -81,7 +82,7 @@ void deleteFromFirst(NodeClient **head)
 
   NodeClient *temp = *head;
   *head = temp->next;
-  free(temp->data);
+  deleteClient(temp->data);
   free(temp);
 }
 
@@ -94,7 +95,7 @@ void deleteFromEnd(NodeClient **head)
 
   NodeClient *temp = *head;
   if (temp->next == NULL) {
-    free(temp->data);
+    deleteClient(temp->data);
     free(temp);
     *head = NULL;
     return;
@@ -103,7 +104,7 @@ void deleteFromEnd(NodeClient **head)
   while (temp->next->next != NULL)
     temp = temp->next;
 
-  free(temp->next->data);
+  deleteClient(temp->next->data);
   free(temp->next);
 
   temp->next = NULL;
@@ -131,11 +132,32 @@ void deleteAtPosition(NodeClient **head, int position)
   }
 
   NodeClient *next = temp->next->next;
-  free(temp->next->data);
+  deleteClient(temp->next->data);
   free(temp->next);
 
   temp->next = next;
 }
+
+void printClient(Client *client)
+{
+  printf("[\n");
+  printf("\tclientfd: %d\n", client->clientfd);
+  printf("\thostname: %s\n", client->hostname);
+  printf("\tip_address: %s\n", client->ip_address);
+  printf("\tport: %s\n", client->port);
+  printf("]\n");
+}
+
+void printNodes(NodeClient *head)
+{
+  NodeClient *temp = head;
+  while (temp != NULL) {
+    printClient(temp->data);
+    temp = temp->next;
+  }
+  printf("NULL\n");
+}
+
 
 SOCKET create_server()
 {
@@ -171,8 +193,10 @@ SOCKET create_server()
   return connfd;
 }
 
-void run_server(SOCKET connfd, NodeClient *head)
+void run_server(SOCKET connfd)
 {
+  NodeClient *head = NULL;
+
   printf("Listening...\n");
   if (listen(connfd, BACKLOG) < 0) {
     fprintf(stderr, "listen() failed. (%d)\n", GETSOCKETERRNO());
@@ -184,7 +208,7 @@ void run_server(SOCKET connfd, NodeClient *head)
   FD_SET(connfd, &master);
   SOCKET max_socket = connfd;
 
-  printf("Waiting for connections");
+  printf("Waiting for connections\n");
 
   while (1) {
 
@@ -201,6 +225,7 @@ void run_server(SOCKET connfd, NodeClient *head)
       if (FD_ISSET(i, &reads)) {
 
         if (i == connfd) {
+
           struct sockaddr_storage client_address;
           socklen_t client_len = sizeof(client_address);
           SOCKET clientfd = accept(connfd, (struct sockaddr *)&client_address,
@@ -215,7 +240,10 @@ void run_server(SOCKET connfd, NodeClient *head)
             max_socket = clientfd;
 
           char address_buffer[100];
+          memset(address_buffer, 0, sizeof(address_buffer));
           char service_buffer[100];
+          memset(service_buffer, 0, sizeof(service_buffer));
+
           getnameinfo((struct sockaddr *)&client_address, client_len,
                       address_buffer, sizeof(address_buffer),
                       service_buffer, sizeof(service_buffer),
@@ -225,6 +253,7 @@ void run_server(SOCKET connfd, NodeClient *head)
           Client *newC = newClient(clientfd, address_buffer, address_buffer,
                                    service_buffer);
           insertAtEnd(&head, newC);
+
         } else {
           // Handle reading request from client
           // Read in ip_address and port
@@ -240,6 +269,8 @@ void run_server(SOCKET connfd, NodeClient *head)
             continue;
           }
 
+          printf("msg from client: %s", read);
+
           char buf[100];
           char address_buffer[100];
           char service_buffer[100];
@@ -248,7 +279,7 @@ void run_server(SOCKET connfd, NodeClient *head)
           memset(buf, 0, sizeof(buf));
           while (j < bytes_read && read[j] != ' ') {
             strncat(buf, &read[j], 1);
-            i++;
+            j++;
           }
 
           printf("1 - Buf: %s\n", buf);
@@ -258,7 +289,7 @@ void run_server(SOCKET connfd, NodeClient *head)
           memset(buf, 0, sizeof(buf));
           while(j < bytes_read && read[j] != '\n') {
             strncat(buf, &read[j], 1);
-            i++;
+            j++;
           }
 
           printf("2 - Buf: %s\n", buf);
@@ -267,7 +298,7 @@ void run_server(SOCKET connfd, NodeClient *head)
 
           SOCKET destfd = 0;
           NodeClient *temp = head;
-          while (temp->next != NULL) {
+          while (temp != NULL) {
             if (strcmp(temp->data->ip_address, address_buffer) == 0) {
               if (strcmp(temp->data->port, service_buffer) == 0) {
                 destfd = temp->data->clientfd;
@@ -277,10 +308,11 @@ void run_server(SOCKET connfd, NodeClient *head)
           }
 
           // cut the first line of `read`
+          printf("destfd: %d\n", destfd);
           if (destfd != 0) {
             send(destfd, read, bytes_read, 0);
           } else {
-            char msg[] = "destination user does not exist.";
+            char msg[] = "destination user does not exist.\n";
             send(i, msg, strlen(msg), 0);
           }
         }
@@ -289,4 +321,7 @@ void run_server(SOCKET connfd, NodeClient *head)
     }
 
   }
+
+  while (head != NULL)
+    deleteFromFirst(&head);
 }

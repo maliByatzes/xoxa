@@ -12,9 +12,9 @@
 
 typedef struct Client_ {
   SOCKET clientfd;
-  char *hostname;
-  char *ip_address;
-  char *port;
+  char hostname[100];
+  char ip_address[100];
+  char port[100];
 } Client;
 
 typedef struct NodeClient_ {
@@ -24,6 +24,7 @@ typedef struct NodeClient_ {
 
 Client *newClient(SOCKET /* clientfd */, char */* hostname */,
                   char */* ip_address */, char */* port */);
+void printClient(Client *client);
 void deleteClient(Client */* this */);
 
 NodeClient *newNodeClient(Client */* data */);
@@ -33,8 +34,9 @@ void insertAtPosition(NodeClient **/* head */, Client */* data */, int /* positi
 void deleteFromFirst(NodeClient **/* head */);
 void deleteFromEnd(NodeClient **/* head */);
 void deleteAtPosition(NodeClient **/* head */, int /* position */);
+void printNodes(NodeClient *head);
 
 SOCKET create_server();
-void run_server(SOCKET /* connfd */, NodeClient */* head */);
+void run_server(SOCKET /* connfd */);
 
 #endif

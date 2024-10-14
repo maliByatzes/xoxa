@@ -13,14 +13,11 @@ int main()
 #endif
 
   SOCKET connfd = create_server();
+  run_server(connfd);
 
-  NodeClient *head = NULL;
-  run_server(connfd, head);
-
-  while (head->next != NULL) {
-    deleteFromEnd(&head);
-    head = head->next;
-  }
+#if defined(_WIN32)
+  WSACleanup();
+#endif
 
   return 0;
 }
