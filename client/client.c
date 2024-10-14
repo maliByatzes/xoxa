@@ -53,7 +53,8 @@ int main(int argc, char ** argv)
   }
 
   printf("Connected.\n");
-  printf("Enter data below.\n");
+  printf("Enter data below. First line is <dest ip> <port>\n");
+  printf("Second line is the actual message.\n");
 
   while (1) {
 
