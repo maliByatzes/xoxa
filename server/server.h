@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+#define BACKLOG 10
+
 typedef struct Client_ {
   SOCKET clientfd;
   char *hostname;
@@ -31,5 +33,8 @@ void insertAtPosition(NodeClient **/* head */, Client */* data */, int /* positi
 void deleteFromFirst(NodeClient **/* head */);
 void deleteFromEnd(NodeClient **/* head */);
 void deleteAtPosition(NodeClient **/* head */, int /* position */);
+
+SOCKET create_server();
+void run_server(SOCKET /* connfd */, NodeClient */* head */);
 
 #endif
