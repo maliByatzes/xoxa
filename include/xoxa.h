@@ -1,5 +1,8 @@
 /* xoxa.h */
 
+#ifndef __xoxa_h
+#define __xoxa_h
+
 #if defined(_WIN32)
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x600
@@ -37,3 +40,5 @@
 
 #include <stdio.h>
 #include <string.h>
+
+#endif
