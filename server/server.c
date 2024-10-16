@@ -254,73 +254,95 @@ void run_server(SOCKET connfd)
           insertAtEnd(&head, newC);
 
         } else {
-          // Handle reading request from client
-          // Read in ip_address and port
-          // Read in the message
-          // Search the linked for the combination of ip_address & port
-          // Send the message to that clientfd if found
 
-          char read[2048];
-          int bytes_read = recv(i, read, 2048, 0);
+          char read[8192];
+          int bytes_read = recv(i, read, 8192, 0);
           if (bytes_read < 1) {
             FD_CLR(i, &master);
             CLOSESOCKET(i);
             continue;
           }
 
-          printf("msg from client: %s", read);
+          printf("msg from client: %s\n", read);
 
-          char buf[100];
-          char address_buffer[100];
-          char service_buffer[100];
-          int j = 0;
+          // read word before ' ' in the first line
+          char result[50];
+          char *colon_pos = strchr(read, '\n');
+          if (colon_pos != NULL) {
+            size_t len = colon_pos - read;
+            strncpy(result, read, len);
+            result[len] = '\0';
 
-          memset(buf, 0, sizeof(buf));
-          while (j < bytes_read && read[j] != ' ') {
-            strncat(buf, &read[j], 1);
-            j++;
+            printf("Substring before NL: %s\n", result);
           }
 
-          memset(address_buffer, 0, sizeof(address_buffer));
-          strncpy(address_buffer, buf, strlen(buf));
+          // Handle `sendto` with ip:port and message
+          if (strcmp(result, "sendto")) {
 
-          memset(buf, 0, sizeof(buf));
-          j++;
-          while(j < bytes_read && read[j] != '\n') {
-            strncat(buf, &read[j], 1);
-            j++;
-          }
+            char buf[100];
+            char address_buffer[100];
+            char service_buffer[100];
+            int j = 0;
 
-          memset(service_buffer, 0, sizeof(service_buffer));
-          strncpy(service_buffer, buf, strlen(buf));
+            memset(buf, 0, sizeof(buf));
+            while (j < bytes_read && read[j] != '\n') ++j;
+            ++j;
 
-          SOCKET destfd = 0;
-          NodeClient *temp = head;
-          while (temp != NULL) {
-            if (strcmp(temp->data->ip_address, address_buffer) == 0) {
-              if (strcmp(temp->data->port, service_buffer) == 0) {
-                destfd = temp->data->clientfd;
+            while(j < bytes_read && read[j] != ' ') {
+              strncat(buf, &read[j], sizeof(char));
+              ++j;
+            }
+            ++j;
+
+            memset(address_buffer, 0, sizeof(address_buffer));
+            strncpy(address_buffer, buf, strlen(buf));
+
+            memset(buf, 0, sizeof(buf));
+            while(j < bytes_read && read[j] != '\n') {
+              strncat(buf, &read[j], sizeof(char));
+              ++j;
+            }
+            ++j;
+
+            memset(service_buffer, 0, sizeof(service_buffer));
+            strncpy(service_buffer, buf, strlen(buf));
+
+            SOCKET destfd = 0;
+            NodeClient *temp = head;
+
+            while (temp != NULL) {
+              if (strcmp(temp->data->ip_address, address_buffer) == 0) {
+                if (strcmp(temp->data->port, service_buffer) == 0) {
+                  destfd = temp->data->clientfd;
+                }
               }
+              temp = temp->next;
             }
-            temp = temp->next;
+
+            if (destfd != 0) {
+              char message[2048];
+              memset(message, 0, sizeof(message));
+              while (j < bytes_read) {
+                strncat(message, &read[j], sizeof(char));
+                ++j;
+              }
+
+              send(destfd, message, strlen(message), 0);
+            } else {
+              char msg[] = "user not found.\n";
+              send(i, msg, strlen(msg), 0);
+            }
           }
 
-          if (destfd != 0) {
-            char *after = strchr(read, '\n');
-            if (after != NULL) {
-              after++;
-              send(destfd, after, strlen(after), 0);
-            }
-          } else {
-            char msg[] = "destination user does not exist.\n";
-            send(i, msg, strlen(msg), 0);
-          }
-        }
+          // Handle `list` to return all connected cients
+          if (strcmp(result, "list")) {}
 
-      }
-    }
+        } // end else
 
-  }
+      } // end if loop
+    } // end for loop
+
+  } // end while(1)
 
   while (head != NULL)
     deleteFromFirst(&head);

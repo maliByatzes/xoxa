@@ -52,9 +52,14 @@ int main(int argc, char ** argv)
     return 1;
   }
 
-  printf("Connected.\n");
-  printf("Enter data below. First line is <dest ip> <port>\n");
-  printf("Second line is the actual message.\n");
+  printf("Connected.\n"
+         "Enter data below. The request must structured as followed: \n"
+         "First line: sendto\n"
+         "Second line: <destination ip> <destination port>\n"
+         "Third line: <message>\n"
+         "OR\n"
+         "First line: list\n"
+  );
 
   while (1) {
 
@@ -91,16 +96,41 @@ int main(int argc, char ** argv)
     if (FD_ISSET(0, &reads)) {
 #endif
 
-        char read[4096];
-        char msg[2048];
-        if (!fgets(read, 4096, stdin)) break;
-        if (!fgets(msg, 2048, stdin)) break;
-        strncat(read, msg, strlen(msg));
+        char action[50];
+        char destination[200];
+        char msg[8192];
+        char buffer[512];
 
-        printf("Sending: %s", read);
+        // read action until NL
+        if (!fgets(action, 50, stdin)) break;
+        strncat(msg, action, strlen(action));
 
-        int bytes_sent = send(socket_peer, read, strlen(read), 0);
-        printf("Sent %d bytes.\n", bytes_sent);
+        // "sendto" action
+        if (strcmp(action, "sendto\n") == 0) {
+          // read destination until NL
+          if (!fgets(destination, 200, stdin)) break;
+          strncat(msg, destination, strlen(destination));
+
+          // read message until empty line
+          while(1) {
+            if (fgets(buffer, 512, stdin) != NULL) {
+              buffer[strcspn(buffer, "\n")] = '\0';
+
+              if (strlen(buffer) == 0) break;
+
+              strncat(msg, buffer, strlen(buffer));
+            }
+          }
+
+          int bytes_sent = send(socket_peer, msg, strlen(msg), 0);
+          printf("Sent %d bytes.\n", bytes_sent);
+         }
+         // "list" action
+        else if (strcmp(action, "list\n") == 0) {}
+
+        else {
+          printf("Invalid action. Available action => `sendto`, `list`");
+        }
 
     }
 

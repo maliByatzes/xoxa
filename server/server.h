@@ -34,7 +34,7 @@ void insertAtPosition(NodeClient **/* head */, Client */* data */, int /* positi
 void deleteFromFirst(NodeClient **/* head */);
 void deleteFromEnd(NodeClient **/* head */);
 void deleteAtPosition(NodeClient **/* head */, int /* position */);
-void printNodes(NodeClient *head);
+void printNodes(NodeClient */* head */);
 
 SOCKET create_server();
 void run_server(SOCKET /* connfd */);
