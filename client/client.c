@@ -104,9 +104,10 @@ int main(int argc, char ** argv)
         // read action until NL
         if (!fgets(action, 50, stdin)) break;
         strncat(msg, action, strlen(action));
+        action[strcspn(action, "\n")] = '\0';
 
         // "sendto" action
-        if (strcmp(action, "sendto\n") == 0) {
+        if (strcmp(action, "sendto") == 0) {
           // read destination until NL
           if (!fgets(destination, 200, stdin)) break;
           strncat(msg, destination, strlen(destination));
@@ -126,10 +127,11 @@ int main(int argc, char ** argv)
           printf("Sent %d bytes.\n", bytes_sent);
          }
          // "list" action
-        else if (strcmp(action, "list\n") == 0) {}
+        else if (strcmp(action, "list") == 0) {}
 
         else {
           printf("Invalid action. Available action => `sendto`, `list`");
+          break; // FIX: break the whole client for now
         }
 
     }

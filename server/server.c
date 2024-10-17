@@ -256,14 +256,14 @@ void run_server(SOCKET connfd)
         } else {
 
           char read[8192];
-          int bytes_read = recv(i, read, 8192, 0);
-          if (bytes_read < 1) {
+          int bits_read = recv(i, read, 8192, 0);
+          if (bits_read < 1) {
             FD_CLR(i, &master);
             CLOSESOCKET(i);
             continue;
           }
 
-          printf("msg from client: %s\n", read);
+          printf("msg from client %d: %s\n", i, read);
 
           // read word before ' ' in the first line
           char result[50];
@@ -272,12 +272,11 @@ void run_server(SOCKET connfd)
             size_t len = colon_pos - read;
             strncpy(result, read, len);
             result[len] = '\0';
-
-            printf("Substring before NL: %s\n", result);
           }
+          result[strcspn(result, "\n")] = '\0';
 
           // Handle `sendto` with ip:port and message
-          if (strcmp(result, "sendto")) {
+          if (strcmp(result, "sendto") == 0) {
 
             char buf[100];
             char address_buffer[100];
@@ -285,10 +284,10 @@ void run_server(SOCKET connfd)
             int j = 0;
 
             memset(buf, 0, sizeof(buf));
-            while (j < bytes_read && read[j] != '\n') ++j;
+            while (j < bits_read && read[j] != '\n') ++j;
             ++j;
 
-            while(j < bytes_read && read[j] != ' ') {
+            while(j < bits_read && read[j] != ' ') {
               strncat(buf, &read[j], sizeof(char));
               ++j;
             }
@@ -298,7 +297,7 @@ void run_server(SOCKET connfd)
             strncpy(address_buffer, buf, strlen(buf));
 
             memset(buf, 0, sizeof(buf));
-            while(j < bytes_read && read[j] != '\n') {
+            while(j < bits_read && read[j] != '\n') {
               strncat(buf, &read[j], sizeof(char));
               ++j;
             }
@@ -322,12 +321,12 @@ void run_server(SOCKET connfd)
             if (destfd != 0) {
               char message[2048];
               memset(message, 0, sizeof(message));
-              while (j < bytes_read) {
+              while (j < bits_read) {
                 strncat(message, &read[j], sizeof(char));
                 ++j;
               }
 
-              send(destfd, message, strlen(message), 0);
+              int bits_sent = send(destfd, message, strlen(message), 0);
             } else {
               char msg[] = "user not found.\n";
               send(i, msg, strlen(msg), 0);
@@ -335,7 +334,7 @@ void run_server(SOCKET connfd)
           }
 
           // Handle `list` to return all connected cients
-          if (strcmp(result, "list")) {}
+          if (strcmp(result, "list") == 0) {}
 
         } // end else
 
