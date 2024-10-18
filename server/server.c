@@ -265,7 +265,6 @@ void run_server(SOCKET connfd)
 
           printf("msg from client %d: %s\n", i, read);
 
-          // read word before ' ' in the first line
           char result[50];
           char *colon_pos = strchr(read, '\n');
           if (colon_pos != NULL) {
@@ -274,6 +273,8 @@ void run_server(SOCKET connfd)
             result[len] = '\0';
           }
           result[strcspn(result, "\n")] = '\0';
+
+          printf("result: %s", result);
 
           // Handle `sendto` with ip:port and message
           if (strcmp(result, "sendto") == 0) {
@@ -334,7 +335,26 @@ void run_server(SOCKET connfd)
           }
 
           // Handle `list` to return all connected cients
-          if (strcmp(result, "list") == 0) {}
+          if (strcmp(result, "list") == 0) {
+            printf("invoked...\n");
+            char response[5120];
+            int u = 1;
+            NodeClient *temp = head;
+
+            while (temp != NULL) {
+              char res[512];
+              snprintf(res, sizeof(res), "User %d: [%s] [%s] [%s]\n",
+                       u,
+                       temp->data->hostname,
+                       temp->data->ip_address,
+                       temp->data->port);
+
+              strncat(response, res, strlen(res));
+              ++u;
+            }
+
+            send(i, response, strlen(response), 0);
+          } // end "list"
 
         } // end else
 

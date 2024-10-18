@@ -127,10 +127,14 @@ int main(int argc, char ** argv)
           printf("Sent %d bytes.\n", bytes_sent);
          }
          // "list" action
-        else if (strcmp(action, "list") == 0) {}
+        else if (strcmp(action, "list") == 0) {
+          strncat(action, "\n", sizeof(char));
+          int bytes_sent = send(socket_peer, action, strlen(action), 0);
+          printf("Sent %d bytes.\n", bytes_sent);
+        }
 
         else {
-          printf("Invalid action. Available action => `sendto`, `list`");
+          printf("Invalid action. Available action => `sendto`, `list`\n");
           break; // FIX: break the whole client for now
         }
 
