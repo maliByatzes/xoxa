@@ -326,7 +326,7 @@ void run_server(SOCKET connfd)
                 ++j;
               }
 
-              int bits_sent = send(destfd, message, strlen(message), 0);
+              send(destfd, message, strlen(message), 0);
             } else {
               char msg[] = "user not found.\n";
               send(i, msg, strlen(msg), 0);
