@@ -335,20 +335,25 @@ void run_server(SOCKET connfd)
           // Handle `list` to return all connected cients
           if (strcmp(result, "list") == 0) {
             char response[5120];
+            memset(response, 0, sizeof(response));
             int u = 1;
             NodeClient *temp = head;
 
             while (temp != NULL) {
-              char res[512];
-              snprintf(res, sizeof(res), "User %d: [%s] [%s] [%s]\n",
-                       u,
-                       temp->data->hostname,
-                       temp->data->ip_address,
-                       temp->data->port);
+              if (temp->data->clientfd == i) {
+                temp = temp->next;
+              } else {
+                char res[512];
+                snprintf(res, sizeof(res), "User %d: [%s] [%s] [%s]\n",
+                        u,
+                        temp->data->hostname,
+                        temp->data->ip_address,
+                        temp->data->port);
 
-              strncat(response, res, strlen(res));
-              ++u;
-              temp = temp->next;
+                strncat(response, res, strlen(res));
+                ++u;
+                temp = temp->next;
+              }
             }
 
             send(i, response, strlen(response), 0);
