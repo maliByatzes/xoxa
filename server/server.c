@@ -263,7 +263,7 @@ void run_server(SOCKET connfd)
             continue;
           }
 
-          printf("msg from client %d: %s\n", i, read);
+          printf("msg from client %d:\n %s\n", i, read);
 
           char result[50];
           char *colon_pos = strchr(read, '\n');

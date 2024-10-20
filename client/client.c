@@ -87,7 +87,7 @@ int main(int argc, char ** argv)
         break;
       }
 
-      printf("Received (%d bytes): %.*s\n", bytes_read, bytes_read, read);
+      printf("Received (%d bytes):\n %.*s\n", bytes_read, bytes_read, read);
     }
 
 #if defined(_WIN32)
