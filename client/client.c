@@ -2,19 +2,35 @@
 
 #include "xoxa.h"
 #include <curses.h>
+#include <sys/param.h>
 
 #define INPUT_HEIGHT 3
 #define STATUS_HEIGHT 2
+#define SIDEBAR_WIDTH 20
 #define MAX_MESSAGES 100
 #define MAX_MESSAGE_LENGTH 1024
+#define MAX_CLIENTS 50
+#define MAX_CLIENT_NAME 50
 
 WINDOW *messages_win;
 WINDOW *input_win;
 WINDOW *status_win;
+WINDOW *sidebar_win;
 
 char message_history[MAX_MESSAGES][MAX_MESSAGE_LENGTH];
 int message_count = 0;
 int scroll_position = 0;
+
+typedef struct {
+  char name[MAX_CLIENT_NAME];
+  char ip[16];
+  char port[6];
+} Client;
+
+Client clients[MAX_CLIENTS];
+int client_count = 0;
+int selected_client = -1;
+int sidebar_scroll = 0;
 
 void init_ui()
 {
@@ -22,6 +38,7 @@ void init_ui()
   cbreak();
   noecho();
   keypad(stdscr, TRUE);
+  mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
 
   if (!has_colors()) {
     endwin();
@@ -35,26 +52,34 @@ void init_ui()
   init_pair(3, COLOR_WHITE, COLOR_BLACK);
   init_pair(4, COLOR_GREEN, COLOR_BLACK);
   init_pair(5, COLOR_RED, COLOR_BLACK);
+  init_pair(6, COLOR_BLACK, COLOR_CYAN);
+  init_pair(7, COLOR_CYAN, COLOR_BLACK);
 
   int max_y, max_x;
   getmaxyx(stdscr, max_y, max_x);
 
-  messages_win = newwin(max_y - INPUT_HEIGHT - STATUS_HEIGHT, max_x, 0, 0);
-  input_win = newwin(INPUT_HEIGHT, max_x, max_y - INPUT_HEIGHT - STATUS_HEIGHT, 0);
+  sidebar_win = newwin(max_y - STATUS_HEIGHT, SIDEBAR_WIDTH, 0, 0);
+  messages_win = newwin(max_y - INPUT_HEIGHT - STATUS_HEIGHT,
+                        max_x - SIDEBAR_WIDTH, 0, SIDEBAR_WIDTH);
+  input_win = newwin(INPUT_HEIGHT, max_x - SIDEBAR_WIDTH,
+                     max_y - INPUT_HEIGHT - STATUS_HEIGHT, SIDEBAR_WIDTH);
   status_win = newwin(STATUS_HEIGHT, max_x, max_y - STATUS_HEIGHT, 0);
 
   scrollok(messages_win, TRUE);
 
+  box(sidebar_win, 0, 0);
   box(input_win, 0, 0);
 
   wbkgd(status_win, COLOR_PAIR(1));
   wbkgd(input_win, COLOR_PAIR(2));
-  wbkgd(status_win, COLOR_PAIR(3));
+  wbkgd(messages_win, COLOR_PAIR(3));
+  wbkgd(sidebar_win, COLOR_PAIR(4));
 
   refresh();
   wrefresh(messages_win);
   wrefresh(input_win);
   wrefresh(status_win);
+  wrefresh(sidebar_win);
 }
 
 void update_status(const char *status)
@@ -62,8 +87,32 @@ void update_status(const char *status)
   werase(status_win);
   wbkgd(status_win, COLOR_PAIR(1));
   mvwprintw(status_win, 0, 1, "Status: %s", status);
-  mvwprintw(status_win, 1, 1, "Commands: 'sendto', 'list', PAGE UP/DOWN to scroll");
+  mvwprintw(status_win, 1, 1, "↑ /↓: Navigate | Enter: Select | Mouse: Click to select");
   wrefresh(status_win);
+}
+
+void refresh_sidebar()
+{
+  werase(sidebar_win);
+  box(sidebar_win, 0, 0);
+  mvwprintw(sidebar_win, 0, 2, " Clients (%d)", client_count);
+
+  int display_start = sidebar_scroll;
+  int display_end = MIN(client_count, display_start + (getmaxy(sidebar_win) - 2));
+
+  for (int i = display_start; i < display_end; i++) {
+    if (i == selected_client) {
+      wattron(sidebar_win, COLOR_PAIR(6));
+      mvwprintw(sidebar_win, i - display_start + 1, 1, "%-18s", clients[i].name);
+      wattroff(sidebar_win, COLOR_PAIR(6));
+    } else {
+      wattron(sidebar_win, COLOR_PAIR(7));
+      mvwprintw(sidebar_win, i - display_start + 1, 1, "%-18s", clients[i].name);
+      wattroff(sidebar_win, COLOR_PAIR(7));
+    }
+  }
+
+  wrefresh(sidebar_win);
 }
 
 void add_message(const char *msg, int color_pair)
@@ -84,6 +133,87 @@ void add_message(const char *msg, int color_pair)
   wrefresh(messages_win);
 }
 
+void parse_client_list(const char *list_data)
+{
+  client_count = 0;
+  char *data_copy = strdup(list_data);
+  char *line = strtok(data_copy, "\n");
+
+  while (line != NULL && client_count < MAX_CLIENTS) {
+    // `name ip:port`
+    char name[MAX_CLIENT_NAME];
+    char ip[16];
+    char port[6];
+
+    if (sscanf(line, "%s %[^:]:%s", name, ip, port) == 3) {
+      strncpy(clients[client_count].name, name, MAX_CLIENT_NAME - 1);
+      strncpy(clients[client_count].ip, ip, 15);
+      strncpy(clients[client_count].port, port, 5);
+      client_count++;
+    }
+
+    line = strtok(NULL, "\n");
+  }
+
+  free(data_copy);
+  refresh_sidebar();
+}
+
+void handle_mouse_click(int y, int x) {
+  if (x < SIDEBAR_WIDTH) {
+    int clicked_index = sidebar_scroll + (y - 1);
+    if (clicked_index >= 0 && clicked_index < client_count) {
+      selected_client = clicked_index;
+      refresh_sidebar();
+
+      char status[100];
+      snprintf(status, sizeof(status), "Selected: %s", clients[selected_client].name);
+      update_status(status);
+    }
+  }
+}
+
+void handle_key(int ch)
+{
+  switch (ch) {
+  case KEY_UP:
+    if (selected_client > 0) {
+      selected_client--;
+      if (selected_client < sidebar_scroll) {
+        sidebar_scroll--;
+      }
+      refresh_sidebar();
+    }
+    break;
+  case KEY_DOWN:
+    if (selected_client < client_count - 1) {
+      selected_client++;
+      if (selected_client >= sidebar_scroll + getmaxy(sidebar_win) - 2) {
+        sidebar_scroll++;
+      }
+      refresh_sidebar();
+    }
+    break;
+
+  case '\n':
+    if (selected_client >= 0) {
+      char status[100];
+      snprintf(status, sizeof(status), "Chatting with: %s",
+               clients[selected_client].name);
+      update_status(status);
+
+      // Prepare sendto command automatically
+      char cmd[8192];
+      snprintf(cmd, sizeof(cmd), "sendto\n%s %s\n",
+               clients[selected_client].ip,
+               clients[selected_client].port);
+
+      // TODO: Handle sending command with message
+    }
+    break;
+  }
+}
+
 char *read_input()
 {
   static char input[MAX_MESSAGE_LENGTH];
@@ -91,13 +221,14 @@ char *read_input()
 
   werase(input_win);
   box(input_win, 0, 0);
+  if (selected_client >= 0) {
+    mvwprintw(input_win, 0, 2, "To: %s", clients[selected_client].name);
+  }
   mvwprintw(input_win, 1, 1, "> ");
   wrefresh(input_win);
 
   echo();
-
   mvwgetnstr(input_win, 1, 3, input, MAX_MESSAGE_LENGTH - 1);
-
   noecho();
 
   return input;
@@ -153,8 +284,9 @@ int main(int argc, char ** argv)
   freeaddrinfo(peer_address);
 
   update_status("Connected");
-  add_message("Connected to server. Type 'sendto' or 'list' to begin", 4);
+  add_message("Connected to server. Use arrow keys or mouse to select clients.", 4);
 
+  MEVENT event;
   while (1) {
 
     fd_set reads;
@@ -178,9 +310,29 @@ int main(int argc, char ** argv)
         break;
       }
       read[bytes_read] = '\0';
-      add_message(read, 3);
+
+      if (strstr(read, "Client List:") == read) {
+        parse_client_list(read + 12);
+      } else {
+        add_message(read, 3);
+      }
     }
 
+    int ch = wgetch(input_win);
+    if (ch == KEY_MOUSE && getmouse(&event) == OK) {
+      handle_mouse_click(event.y, event.x);
+    } else if (ch != ERR) {
+      handle_key(ch);
+    }
+
+    static time_t last_refresh = 0;
+    time_t current_time = time(NULL);
+    if (current_time - last_refresh >= 5) {
+      send(socket_peer, "list\n", 5, 0);
+      last_refresh = current_time;
+    }
+
+    /*
     char *input = read_input();
     if (strlen(input) > 0) {
       if (strcmp(input, "sendto") == 0) {
@@ -223,7 +375,7 @@ int main(int argc, char ** argv)
       } else {
         add_message("Invalid command. Use 'sendto' or 'list'", 5);
       }
-    }
+    }*/
 
   }
 
