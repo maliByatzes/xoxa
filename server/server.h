@@ -12,6 +12,7 @@
 
 typedef struct Client_ {
   SOCKET clientfd;
+  char name[100];
   char hostname[100];
   char ip_address[100];
   char port[100];

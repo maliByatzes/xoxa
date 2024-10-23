@@ -38,6 +38,8 @@ typedef struct {
   int sidebar_scroll;
 
   Config cfg;
+
+  SOCKET socket_peer;
 } Application;
 
 Application init_application();
@@ -53,6 +55,6 @@ void handle_key(Application */* app */, int /* ch */);
 char *read_input(Application */* app */);
 
 SOCKET connect_to_remote(Application */* app */);
-void client_loop(Application */* app */, SOCKET /* socket_peer */);
+void client_loop(Application */* app */);
 
 #endif

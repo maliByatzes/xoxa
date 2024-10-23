@@ -263,7 +263,7 @@ void run_server(SOCKET connfd)
             continue;
           }
 
-          printf("msg from client %d:\n %s\n", i, read);
+          printf("msg from client %d:\n%s\n", i, read);
 
           char result[50];
           char *colon_pos = strchr(read, '\n');
@@ -274,7 +274,7 @@ void run_server(SOCKET connfd)
           }
           result[strcspn(result, "\n")] = '\0';
 
-          // Handle `sendto` with ip:port and message
+          // Handle `sendto` with name ip port and message
           if (strcmp(result, "sendto") == 0) {
 
             char buf[100];
@@ -325,7 +325,8 @@ void run_server(SOCKET connfd)
                 ++j;
               }
 
-              send(destfd, message, strlen(message), 0);
+              int bits_sent = send(destfd, message, strlen(message), 0);
+              printf("Sent (%d) bits\n", bits_sent);
             } else {
               char msg[] = "user not found.\n";
               send(i, msg, strlen(msg), 0);
@@ -336,22 +337,19 @@ void run_server(SOCKET connfd)
           if (strcmp(result, "list") == 0) {
             char response[5120];
             memset(response, 0, sizeof(response));
-            int u = 1;
             NodeClient *temp = head;
 
+            strncat(response, "Client List:\n", 13);
             while (temp != NULL) {
               if (temp->data->clientfd == i) {
                 temp = temp->next;
               } else {
                 char res[512];
-                snprintf(res, sizeof(res), "User %d: [%s] [%s] [%s]\n",
-                        u,
-                        temp->data->hostname,
+                snprintf(res, sizeof(res), "user %s:%s\n",
                         temp->data->ip_address,
                         temp->data->port);
 
                 strncat(response, res, strlen(res));
-                ++u;
                 temp = temp->next;
               }
             }

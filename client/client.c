@@ -36,7 +36,9 @@ void run_application(Application *app) {
 
   SOCKET socket_peer = connect_to_remote(app);
 
-  client_loop(app, socket_peer);
+  app->socket_peer = socket_peer;
+
+  client_loop(app);
 
   update_status(app, "Closing connection...");
   CLOSESOCKET(socket_peer);
@@ -185,8 +187,31 @@ void parse_client_list(Application *app, const char *list_data)
 
 void handle_key(Application *app, int  ch)
 {
-  /*
   switch (ch) {
+  case 'I':
+  case 'i':
+    if (app->selected_client >= 0) {
+      char message[8192] = {0};
+      char buffer[512];
+
+      while (1) {
+        char *line = read_input(app);
+        if (strlen(line) == 0) break;
+        strcat(message, line);
+        strcat(message, "\n");
+      }
+
+      char complete_request[8192];
+      snprintf(complete_request, sizeof(complete_request), "sendto\n%s %s\n%s",
+                app->clients[app->selected_client].ip,
+                app->clients[app->selected_client].port,
+                message);
+
+      add_message(app, message, 4);
+
+      send(app->socket_peer, complete_request, strlen(complete_request), 0);
+    }
+    break;
   case KEY_UP:
     if (app->selected_client > 0) {
       app->selected_client--;
@@ -205,24 +230,10 @@ void handle_key(Application *app, int  ch)
       refresh_sidebar(app);
     }
     break;
-
-  case '\n':
-    if (app->selected_client >= 0) {
-      char status[100];
-      snprintf(status, sizeof(status), "Chatting with: %s",
-               clients[selected_client].name);
-      update_status(status);
-
-      // Prepare sendto command automatically
-      char cmd[8192];
-      snprintf(cmd, sizeof(cmd), "sendto\n%s %s\n",
-               clients[selected_client].ip,
-               clients[selected_client].port);
-
-      // TODO: Handle sending command with message
-    }
+ case 'r':
+    send(app->socket_peer, "list\n", 5, 0);
     break;
-  }*/
+  }
 }
 
 char *read_input(Application *app)
@@ -293,19 +304,19 @@ SOCKET connect_to_remote(Application *app)
   return socket_peer;
 }
 
-void client_loop(Application *app, SOCKET socket_peer)
+void client_loop(Application *app)
 {
   while (1) {
 
     fd_set reads;
     FD_ZERO(&reads);
-    FD_SET(socket_peer, &reads);
+    FD_SET(app->socket_peer, &reads);
 
     struct timeval timeout;
     timeout.tv_sec = 0;
     timeout.tv_usec = 100000;
 
-    if (select(socket_peer+1, &reads, 0, 0, &timeout) < 0) {
+    if (select(app->socket_peer+1, &reads, 0, 0, &timeout) < 0) {
       char status[100];
       snprintf(status, sizeof(status), "select() failed. (%d)",
               GETSOCKETERRNO());
@@ -314,32 +325,32 @@ void client_loop(Application *app, SOCKET socket_peer)
     }
 
     // Read data from socket_peer
-    if (FD_ISSET(socket_peer, &reads)) {
+    if (FD_ISSET(app->socket_peer, &reads)) {
       char read_buffer[4096];
-      int bytes_read = recv(socket_peer, read_buffer, 4096, 0);
+      int bytes_read = recv(app->socket_peer, read_buffer, 4096, 0);
       if (bytes_read < 1) {
         update_status(app, "Connection closed by peer.");
         break;
       }
       read_buffer[bytes_read] = '\0';
 
-      if (strstr(read_buffer, "Client List:") == read_buffer) {
-        parse_client_list(app, read_buffer + 12);
+      if (strstr(read_buffer, "Client List:\n") == read_buffer) {
+        parse_client_list(app, read_buffer + 13);
       } else {
-        add_message(app, read_buffer, 3);
+        add_message(app, read_buffer, 4);
       }
-    }
-
-    int ch = getch(); // get from main window
-    if (ch != ERR) {
-      handle_key(app, ch);
     }
 
     static time_t last_refresh = 0;
     time_t current_time = time(NULL);
     if (current_time - last_refresh >= 60) { // refresh every 60 seconds
-      send(socket_peer, "list\n", 5, 0);
+      send(app->socket_peer, "list\n", 5, 0);
       last_refresh = current_time;
+    }
+
+    int ch = getch(); // get from main window
+    if (ch != ERR) {
+      handle_key(app, ch);
     }
 
   }
