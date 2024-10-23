@@ -1,38 +1,62 @@
 /* client.c */
 
-#include "xoxa.h"
+#include "client.h"
 #include <curses.h>
-#include <sys/param.h>
 
-#define INPUT_HEIGHT 3
-#define STATUS_HEIGHT 2
-#define SIDEBAR_WIDTH 20
-#define MAX_MESSAGES 100
-#define MAX_MESSAGE_LENGTH 1024
-#define MAX_CLIENTS 50
-#define MAX_CLIENT_NAME 50
+Application init_application()
+{
+  Application app;
 
-WINDOW *messages_win;
-WINDOW *input_win;
-WINDOW *status_win;
-WINDOW *sidebar_win;
+  app.message_count = 0;
+  app.scroll_position = 0;
+  app.client_count = 0;
+  app.selected_client = -1;
+  app.sidebar_scroll = 0;
 
-char message_history[MAX_MESSAGES][MAX_MESSAGE_LENGTH];
-int message_count = 0;
-int scroll_position = 0;
+  app.cfg = load_config();
 
-typedef struct {
-  char name[MAX_CLIENT_NAME];
-  char ip[16];
-  char port[6];
-} Client;
+  if (!validate_config(&app.cfg)) {
+    free_config(&app.cfg);
+    exit(1);
+  }
 
-Client clients[MAX_CLIENTS];
-int client_count = 0;
-int selected_client = -1;
-int sidebar_scroll = 0;
+  return app;
+}
+void run_application(Application *app) {
 
-void init_ui()
+#if defined(_WIN32)
+  WSADATA d;
+  if (WSAStartup(MAKEWORD(2,2), &d)) {
+    fprintf(stderr, "Failed to initialize.\n");
+    return 1;
+  }
+#endif
+
+  init_ui(app);
+
+  SOCKET socket_peer = connect_to_remote(app);
+
+  client_loop(app, socket_peer);
+
+  update_status(app, "Closing connection...");
+  CLOSESOCKET(socket_peer);
+
+#if defined(_WIN32)
+  WSACleanup();
+#endif
+
+  mvprintw(LINES - 1, 0, "Press any key to exit...");
+  refresh();
+  getch();
+  endwin();
+
+  free_config(&app->cfg);
+  free_application(app);
+}
+
+void free_application(Application * app) {}
+
+void init_ui(Application *app)
 {
   initscr();
   cbreak();
@@ -58,145 +82,132 @@ void init_ui()
   int max_y, max_x;
   getmaxyx(stdscr, max_y, max_x);
 
-  sidebar_win = newwin(max_y - STATUS_HEIGHT, SIDEBAR_WIDTH, 0, 0);
-  messages_win = newwin(max_y - INPUT_HEIGHT - STATUS_HEIGHT,
+  app->sidebar_win = newwin(max_y - STATUS_HEIGHT, SIDEBAR_WIDTH, 0, 0);
+  app->messages_win = newwin(max_y - INPUT_HEIGHT - STATUS_HEIGHT,
                         max_x - SIDEBAR_WIDTH, 0, SIDEBAR_WIDTH);
-  input_win = newwin(INPUT_HEIGHT, max_x - SIDEBAR_WIDTH,
+  app->input_win = newwin(INPUT_HEIGHT, max_x - SIDEBAR_WIDTH,
                      max_y - INPUT_HEIGHT - STATUS_HEIGHT, SIDEBAR_WIDTH);
-  status_win = newwin(STATUS_HEIGHT, max_x, max_y - STATUS_HEIGHT, 0);
+  app->status_win = newwin(STATUS_HEIGHT, max_x, max_y - STATUS_HEIGHT, 0);
 
-  scrollok(messages_win, TRUE);
+  scrollok(app->messages_win, TRUE);
 
-  box(sidebar_win, 0, 0);
-  box(input_win, 0, 0);
+  box(app->sidebar_win, 0, 0);
+  box(app->input_win, 0, 0);
 
-  wbkgd(status_win, COLOR_PAIR(1));
-  wbkgd(input_win, COLOR_PAIR(2));
-  wbkgd(messages_win, COLOR_PAIR(3));
-  wbkgd(sidebar_win, COLOR_PAIR(4));
+  wbkgd(app->status_win, COLOR_PAIR(1));
+  wbkgd(app->input_win, COLOR_PAIR(2));
+  wbkgd(app->messages_win, COLOR_PAIR(3));
+  wbkgd(app->sidebar_win, COLOR_PAIR(4));
 
   refresh();
-  wrefresh(messages_win);
-  wrefresh(input_win);
-  wrefresh(status_win);
-  wrefresh(sidebar_win);
+  wrefresh(app->messages_win);
+  wrefresh(app->input_win);
+  wrefresh(app->status_win);
+  wrefresh(app->sidebar_win);
 }
 
-void update_status(const char *status)
+void update_status(Application *app, const char *status)
 {
-  werase(status_win);
-  wbkgd(status_win, COLOR_PAIR(1));
-  mvwprintw(status_win, 0, 1, "Status: %s", status);
-  mvwprintw(status_win, 1, 1, "<UP> / <DOWN>: Navigate | Enter: Select");
-  wrefresh(status_win);
+  werase(app->status_win);
+  wbkgd(app->status_win, COLOR_PAIR(1));
+  mvwprintw(app->status_win, 0, 1, "Status: %s", status);
+  mvwprintw(app->status_win, 1, 1, "<UP> / <DOWN>: Navigate | Enter: Select");
+  wrefresh(app->status_win);
 }
 
-void refresh_sidebar()
+void refresh_sidebar(Application *app)
 {
-  werase(sidebar_win);
-  box(sidebar_win, 0, 0);
-  mvwprintw(sidebar_win, 0, 2, " Clients (%d)", client_count);
+  werase(app->sidebar_win);
+  box(app->sidebar_win, 0, 0);
+  mvwprintw(app->sidebar_win, 0, 2, " Clients (%d)", app->client_count);
 
-  int display_start = sidebar_scroll;
-  int display_end = MIN(client_count, display_start + (getmaxy(sidebar_win) - 2));
+  int display_start = app->sidebar_scroll;
+  int display_end = MIN(app->client_count, display_start + (getmaxy(app->sidebar_win) - 2));
 
   for (int i = display_start; i < display_end; i++) {
-    if (i == selected_client) {
-      wattron(sidebar_win, COLOR_PAIR(6));
-      mvwprintw(sidebar_win, i - display_start + 1, 1, "%-18s", clients[i].name);
-      wattroff(sidebar_win, COLOR_PAIR(6));
+    if (i == app->selected_client) {
+      wattron(app->sidebar_win, COLOR_PAIR(6));
+      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", app->clients[i].name);
+      wattroff(app->sidebar_win, COLOR_PAIR(6));
     } else {
-      wattron(sidebar_win, COLOR_PAIR(7));
-      mvwprintw(sidebar_win, i - display_start + 1, 1, "%-18s", clients[i].name);
-      wattroff(sidebar_win, COLOR_PAIR(7));
+      wattron(app->sidebar_win, COLOR_PAIR(7));
+      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", app->clients[i].name);
+      wattroff(app->sidebar_win, COLOR_PAIR(7));
     }
   }
 
-  wrefresh(sidebar_win);
+  wrefresh(app->sidebar_win);
 }
 
-void add_message(const char *msg, int color_pair)
+void add_message(Application *app, const char *msg, int color_pair)
 {
-  if (message_count < MAX_MESSAGES) {
-    strncpy(message_history[message_count], msg, MAX_MESSAGE_LENGTH - 1);
-    message_count++;
+  if (app->message_count < MAX_MESSAGES) {
+    strncpy(app->message_history[app->message_count], msg, MAX_MESSAGE_LENGTH - 1);
+    app->message_count++;
   } else {
     for (int i = 0; i < MAX_MESSAGES - 1; ++i) {
-      strcpy(message_history[i], message_history[i+1]);
+      strcpy(app->message_history[i], app->message_history[i+1]);
     }
-    strncpy(message_history[MAX_MESSAGES - 1], msg, MAX_MESSAGE_LENGTH - 1);
+    strncpy(app->message_history[MAX_MESSAGES - 1], msg, MAX_MESSAGE_LENGTH - 1);
   }
 
-  wattron(messages_win, COLOR_PAIR(color_pair));
-  wprintw(messages_win, "%s\n", msg);
-  wattroff(messages_win, COLOR_PAIR(color_pair));
-  wrefresh(messages_win);
+  wattron(app->messages_win, COLOR_PAIR(color_pair));
+  wprintw(app->messages_win, "%s\n", msg);
+  wattroff(app->messages_win, COLOR_PAIR(color_pair));
+  wrefresh(app->messages_win);
 }
 
-void parse_client_list(const char *list_data)
+void parse_client_list(Application *app, const char *list_data)
 {
-  client_count = 0;
+  app->client_count = 0;
   char *data_copy = strdup(list_data);
   char *line = strtok(data_copy, "\n");
 
-  while (line != NULL && client_count < MAX_CLIENTS) {
+  while (line != NULL && app->client_count < MAX_CLIENTS) {
     // `name ip:port`
     char name[MAX_CLIENT_NAME];
     char ip[16];
     char port[6];
 
     if (sscanf(line, "%s %[^:]:%s", name, ip, port) == 3) {
-      strncpy(clients[client_count].name, name, MAX_CLIENT_NAME - 1);
-      strncpy(clients[client_count].ip, ip, 15);
-      strncpy(clients[client_count].port, port, 5);
-      client_count++;
+      strncpy(app->clients[app->client_count].name, name, MAX_CLIENT_NAME - 1);
+      strncpy(app->clients[app->client_count].ip, ip, 15);
+      strncpy(app->clients[app->client_count].port, port, 5);
+      app->client_count++;
     }
 
     line = strtok(NULL, "\n");
   }
 
   free(data_copy);
-  refresh_sidebar();
+  refresh_sidebar(app);
 }
 
-void handle_mouse_click(int y, int x) {
-  if (x < SIDEBAR_WIDTH) {
-    int clicked_index = sidebar_scroll + (y - 1);
-    if (clicked_index >= 0 && clicked_index < client_count) {
-      selected_client = clicked_index;
-      refresh_sidebar();
-
-      char status[100];
-      snprintf(status, sizeof(status), "Selected: %s", clients[selected_client].name);
-      update_status(status);
-    }
-  }
-}
-
-void handle_key(int ch)
+void handle_key(Application *app, int  ch)
 {
+  /*
   switch (ch) {
   case KEY_UP:
-    if (selected_client > 0) {
-      selected_client--;
-      if (selected_client < sidebar_scroll) {
-        sidebar_scroll--;
+    if (app->selected_client > 0) {
+      app->selected_client--;
+      if (app->selected_client < app->sidebar_scroll) {
+        app->sidebar_scroll--;
       }
-      refresh_sidebar();
+      refresh_sidebar(app);
     }
     break;
   case KEY_DOWN:
-    if (selected_client < client_count - 1) {
-      selected_client++;
-      if (selected_client >= sidebar_scroll + getmaxy(sidebar_win) - 2) {
-        sidebar_scroll++;
+    if (app->selected_client < app->client_count - 1) {
+      app->selected_client++;
+      if (app->selected_client >= app->sidebar_scroll + getmaxy(app->sidebar_win) - 2) {
+        app->sidebar_scroll++;
       }
-      refresh_sidebar();
+      refresh_sidebar(app);
     }
     break;
 
   case '\n':
-    if (selected_client >= 0) {
+    if (app->selected_client >= 0) {
       char status[100];
       snprintf(status, sizeof(status), "Chatting with: %s",
                clients[selected_client].name);
@@ -211,60 +222,46 @@ void handle_key(int ch)
       // TODO: Handle sending command with message
     }
     break;
-  }
+  }*/
 }
 
-char *read_input()
+char *read_input(Application *app)
 {
   static char input[MAX_MESSAGE_LENGTH];
   memset(input, 0, MAX_MESSAGE_LENGTH);
 
-  werase(input_win);
-  box(input_win, 0, 0);
-  if (selected_client >= 0) {
-    mvwprintw(input_win, 0, 2, "To: %s", clients[selected_client].name);
+  werase(app->input_win);
+  box(app->input_win, 0, 0);
+  if (app->selected_client >= 0) {
+    mvwprintw(app->input_win, 0, 2, "To: %s", app->clients[app->selected_client].name);
   }
-  mvwprintw(input_win, 1, 1, "> ");
-  wrefresh(input_win);
+  mvwprintw(app->input_win, 1, 1, "> ");
+  wrefresh(app->input_win);
 
   echo();
-  mvwgetnstr(input_win, 1, 3, input, MAX_MESSAGE_LENGTH - 1);
+  mvwgetnstr(app->input_win, 1, 3, input, MAX_MESSAGE_LENGTH - 1);
   noecho();
 
   return input;
 }
 
-int main(int argc, char ** argv)
+SOCKET connect_to_remote(Application *app)
 {
-
-  if (argc != 3) {
-    fprintf(stderr, "usage: %s <hostname> <port>\n", argv[0]);
-    return 1;
-  }
-
-#if defined(_WIN32)
-  WSADATA d;
-  if (WSAStartup(MAKEWORD(2,2), &d)) {
-    fprintf(stderr, "Failed to initialize.\n");
-    return 1;
-  }
-#endif
-
-  init_ui();
-  update_status("Connecting...");
+  update_status(app, "Connecting...");
 
   struct addrinfo hints;
   memset(&hints, 0, sizeof(hints));
   hints.ai_socktype = SOCK_STREAM;
 
   struct addrinfo *peer_address;
-  if (getaddrinfo(argv[1], argv[2], &hints, &peer_address)) {
+  if (getaddrinfo(app->cfg.server_ip, app->cfg.server_port, &hints, &peer_address)) {
     char status[100];
-    snprintf(status, sizeof(status), "get addrinfo() failed. (%d)\n", GETSOCKETERRNO());
-    update_status(status);
+    snprintf(status, sizeof(status), "getaddrinfo() failed. (%d)",
+             GETSOCKETERRNO());
+    update_status(app, status);
     getch();
     endwin();
-    return 1;
+    exit(1);
   }
 
   SOCKET socket_peer;
@@ -272,27 +269,32 @@ int main(int argc, char ** argv)
                        peer_address->ai_protocol);
   if (!ISVALIDSOCKET(socket_peer)) {
     char status[100];
-    snprintf(status, sizeof(status), "socket() failed. (%d)\n", GETSOCKETERRNO());
-    update_status(status);
+    snprintf(status, sizeof(status), "socket() failed. (%d)",
+             GETSOCKETERRNO());
+    update_status(app, status);
     getch();
     endwin();
-    return 1;
+    exit(1);
   }
 
   if (connect(socket_peer, peer_address->ai_addr, peer_address->ai_addrlen)) {
     char status[100];
-    snprintf(status, sizeof(status), "connect() failed. (%d)\n", GETSOCKETERRNO());
-    update_status(status);
+    snprintf(status, sizeof(status), "connect() failed. (%d)", GETSOCKETERRNO());
+    update_status(app, status);
     getch();
     endwin();
-    return 1;
+    exit(1);
   }
+
   freeaddrinfo(peer_address);
 
-  update_status("Connected");
-  // add_message("Connected to server. Use arrow keys or mouse to select clients.", 4);
+  update_status(app, "Connected");
 
-  // MEVENT event;
+  return socket_peer;
+}
+
+void client_loop(Application *app, SOCKET socket_peer)
+{
   while (1) {
 
     fd_set reads;
@@ -305,98 +307,40 @@ int main(int argc, char ** argv)
 
     if (select(socket_peer+1, &reads, 0, 0, &timeout) < 0) {
       char status[100];
-      snprintf(status, sizeof(status), "select() failed. (%d)\n", GETSOCKETERRNO());
-      update_status(status);
+      snprintf(status, sizeof(status), "select() failed. (%d)",
+              GETSOCKETERRNO());
+      update_status(app, status);
       break;
     }
 
-    // Read from response from socket_peer
+    // Read data from socket_peer
     if (FD_ISSET(socket_peer, &reads)) {
       char read_buffer[4096];
       int bytes_read = recv(socket_peer, read_buffer, 4096, 0);
       if (bytes_read < 1) {
-        update_status("Connection closed by peer.");
+        update_status(app, "Connection closed by peer.");
         break;
       }
       read_buffer[bytes_read] = '\0';
 
       if (strstr(read_buffer, "Client List:") == read_buffer) {
-        parse_client_list(read_buffer + 12);
+        parse_client_list(app, read_buffer + 12);
       } else {
-        add_message(read_buffer, 3);
+        add_message(app, read_buffer, 3);
       }
     }
 
-    int ch = wgetch(input_win);
+    int ch = getch(); // get from main window
     if (ch != ERR) {
-      handle_key(ch);
+      handle_key(app, ch);
     }
 
     static time_t last_refresh = 0;
     time_t current_time = time(NULL);
-    if (current_time - last_refresh >= 5) {
+    if (current_time - last_refresh >= 60) { // refresh every 60 seconds
       send(socket_peer, "list\n", 5, 0);
       last_refresh = current_time;
     }
 
-    /*
-    char *input = read_input();
-    if (strlen(input) > 0) {
-      if (strcmp(input, "sendto") == 0) {
-        update_status("Enter destination details...");
-        add_message("Enter destination IP:", 4);
-        char dest_ip[200] = {0};
-        strcpy(dest_ip, read_input());
-
-        add_message("Enter destination port:", 4);
-        char dest_port[50] = {0};
-        strcpy(dest_port, read_input());
-
-        add_message("Enter message (empty line to read):", 4);
-        char message[8192] = {0};
-        char buffer[512];
-
-        while (1) {
-          char *line = read_input();
-          if (strlen(line) == 0) break;
-          strcat(message, line);
-          strcat(message, "\n");
-        }
-
-        char complete_msg[8192];
-        snprintf(complete_msg, sizeof(complete_msg), "sendto\n%s %s\n%s",
-                 dest_ip, dest_port, message);
-
-        int bytes_sent = send(socket_peer, complete_msg, strlen(complete_msg), 0);
-        char status[100];
-        snprintf(status, sizeof(status), "Sent %d bytes", bytes_sent);
-        update_status(status);
-
-      } else if (strcmp(input, "list") == 0) {
-        char list_cmd[] = "list\n";
-        int bytes_sent = send(socket_peer, list_cmd, strlen(list_cmd), 0);
-        char status[100];
-        snprintf(status, sizeof(status), "Sent %d bytes", bytes_sent);
-        update_status(status);
-
-      } else {
-        add_message("Invalid command. Use 'sendto' or 'list'", 5);
-      }
-    }*/
-
   }
-
-  update_status("Closing connection...");
-  CLOSESOCKET(socket_peer);
-
-#if defined(_WIN32)
-  WSACleanup();
-#endif
-
-  mvprintw(LINES - 1, 0, "Press any key to exit...");
-  refresh();
-  getch();
-  endwin();
-
-  return 0;
 }
