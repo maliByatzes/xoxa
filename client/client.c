@@ -38,7 +38,7 @@ void init_ui()
   cbreak();
   noecho();
   keypad(stdscr, TRUE);
-  mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+  // mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
 
   if (!has_colors()) {
     endwin();
@@ -87,7 +87,7 @@ void update_status(const char *status)
   werase(status_win);
   wbkgd(status_win, COLOR_PAIR(1));
   mvwprintw(status_win, 0, 1, "Status: %s", status);
-  mvwprintw(status_win, 1, 1, "↑ /↓: Navigate | Enter: Select | Mouse: Click to select");
+  mvwprintw(status_win, 1, 1, "<UP> / <DOWN>: Navigate | Enter: Select");
   wrefresh(status_win);
 }
 
@@ -259,7 +259,9 @@ int main(int argc, char ** argv)
 
   struct addrinfo *peer_address;
   if (getaddrinfo(argv[1], argv[2], &hints, &peer_address)) {
-    add_message("get addrinfo() failed.", 5);
+    char status[100];
+    snprintf(status, sizeof(status), "get addrinfo() failed. (%d)\n", GETSOCKETERRNO());
+    update_status(status);
     getch();
     endwin();
     return 1;
@@ -269,14 +271,18 @@ int main(int argc, char ** argv)
   socket_peer = socket(peer_address->ai_family, peer_address->ai_socktype,
                        peer_address->ai_protocol);
   if (!ISVALIDSOCKET(socket_peer)) {
-    add_message("socket() failed.", 5);
+    char status[100];
+    snprintf(status, sizeof(status), "socket() failed. (%d)\n", GETSOCKETERRNO());
+    update_status(status);
     getch();
     endwin();
     return 1;
   }
 
   if (connect(socket_peer, peer_address->ai_addr, peer_address->ai_addrlen)) {
-    add_message("connect() failed.", 5);
+    char status[100];
+    snprintf(status, sizeof(status), "connect() failed. (%d)\n", GETSOCKETERRNO());
+    update_status(status);
     getch();
     endwin();
     return 1;
@@ -284,9 +290,9 @@ int main(int argc, char ** argv)
   freeaddrinfo(peer_address);
 
   update_status("Connected");
-  add_message("Connected to server. Use arrow keys or mouse to select clients.", 4);
+  // add_message("Connected to server. Use arrow keys or mouse to select clients.", 4);
 
-  MEVENT event;
+  // MEVENT event;
   while (1) {
 
     fd_set reads;
@@ -298,30 +304,31 @@ int main(int argc, char ** argv)
     timeout.tv_usec = 100000;
 
     if (select(socket_peer+1, &reads, 0, 0, &timeout) < 0) {
-      add_message("select() failed.", 5);
+      char status[100];
+      snprintf(status, sizeof(status), "select() failed. (%d)\n", GETSOCKETERRNO());
+      update_status(status);
       break;
     }
 
+    // Read from response from socket_peer
     if (FD_ISSET(socket_peer, &reads)) {
-      char read[4096];
-      int bytes_read = recv(socket_peer, read, 4096, 0);
+      char read_buffer[4096];
+      int bytes_read = recv(socket_peer, read_buffer, 4096, 0);
       if (bytes_read < 1) {
-        add_message("Connection closed by peer.", 5);
+        update_status("Connection closed by peer.");
         break;
       }
-      read[bytes_read] = '\0';
+      read_buffer[bytes_read] = '\0';
 
-      if (strstr(read, "Client List:") == read) {
-        parse_client_list(read + 12);
+      if (strstr(read_buffer, "Client List:") == read_buffer) {
+        parse_client_list(read_buffer + 12);
       } else {
-        add_message(read, 3);
+        add_message(read_buffer, 3);
       }
     }
 
     int ch = wgetch(input_win);
-    if (ch == KEY_MOUSE && getmouse(&event) == OK) {
-      handle_mouse_click(event.y, event.x);
-    } else if (ch != ERR) {
+    if (ch != ERR) {
       handle_key(ch);
     }
 
