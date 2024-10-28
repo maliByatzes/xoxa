@@ -191,8 +191,8 @@ void handle_key(Application *app, int  ch)
   case 'I':
   case 'i':
     if (app->selected_client >= 0) {
-      char message[8192] = {0};
-      char buffer[512];
+      char message[7168];
+      memset(message, 0, sizeof(message));
 
       while (1) {
         char *line = read_input(app);
@@ -202,6 +202,7 @@ void handle_key(Application *app, int  ch)
       }
 
       char complete_request[8192];
+      memset(complete_request, 0, sizeof(complete_request));
       snprintf(complete_request, sizeof(complete_request), "sendto\n%s %s\n%s",
                 app->clients[app->selected_client].ip,
                 app->clients[app->selected_client].port,
@@ -299,6 +300,9 @@ SOCKET connect_to_remote(Application *app)
 
   freeaddrinfo(peer_address);
 
+  // send client's name
+  send(socket_peer, app->cfg.client_name, strlen(app->cfg.client_name), 0);
+
   update_status(app, "Connected");
 
   return socket_peer;
@@ -326,7 +330,8 @@ void client_loop(Application *app)
 
     // Read data from socket_peer
     if (FD_ISSET(app->socket_peer, &reads)) {
-      char read_buffer[4096];
+      char read_buffer[8196];
+      memset(read_buffer, 0, sizeof(read_buffer));
       int bytes_read = recv(app->socket_peer, read_buffer, 4096, 0);
       if (bytes_read < 1) {
         update_status(app, "Connection closed by peer.");

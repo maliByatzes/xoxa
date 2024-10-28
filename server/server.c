@@ -2,11 +2,12 @@
 
 #include "server.h"
 
-Client *newClient(SOCKET clientfd, char *hostname, char *ip_address, char *port)
+Client *newClient(SOCKET clientfd, char *name, char *hostname, char *ip_address, char *port)
 {
   Client *this = (Client*)malloc(sizeof(Client));
 
   this->clientfd = clientfd;
+  strcpy(this->name, name);
   strcpy(this->hostname, hostname);
   strcpy(this->ip_address, ip_address);
   strcpy(this->port, port);
@@ -62,7 +63,7 @@ void insertAtPosition(NodeClient **head, Client *data, int position)
     temp = temp->next;
 
   if (temp == NULL) {
-    fprintf(stderr, "Position out of range\n");
+    log_message(error, "Position out of range.");
     deleteClient(newNC->data);
     free(newNC);
     return;
@@ -75,7 +76,7 @@ void insertAtPosition(NodeClient **head, Client *data, int position)
 void deleteFromFirst(NodeClient **head)
 {
   if (*head == NULL) {
-    printf("List is empty\n");
+    log_message(warn, "List is empty.");
     return;
   }
 
@@ -88,7 +89,7 @@ void deleteFromFirst(NodeClient **head)
 void deleteFromEnd(NodeClient **head)
 {
   if (*head == NULL) {
-    printf("List is empty\n");
+    log_message(warn, "List is empty.");
     return;
   }
 
@@ -112,7 +113,7 @@ void deleteFromEnd(NodeClient **head)
 void deleteAtPosition(NodeClient **head, int position)
 {
   if (*head == NULL) {
-    printf("List is empty\n");
+    log_message(warn, "List is empty.");
     return;
   }
 
@@ -126,7 +127,7 @@ void deleteAtPosition(NodeClient **head, int position)
     temp = temp->next;
 
   if (temp == NULL || temp->next == NULL) {
-    fprintf(stderr, "Position out of range\n");
+    log_message(error, "Position out of range.");
     return;
   }
 
@@ -160,7 +161,7 @@ void printNodes(NodeClient *head)
 
 SOCKET create_server()
 {
-  printf("Configuring local address...\n");
+  log_message(info, "Configuring local address...");
   struct addrinfo hints;
   memset(&hints, 0, sizeof(hints));
   hints.ai_family = AF_UNSPEC;
@@ -169,22 +170,22 @@ SOCKET create_server()
 
   struct addrinfo *bind_address;
   if (getaddrinfo(NULL, "8080", &hints, &bind_address)) {
-    fprintf(stderr, "getaddrinfo() failed. (%d)\n", GETSOCKETERRNO());
+    log_message(error, "getaddrinfo() failed. (%d)", GETSOCKETERRNO());
     exit(1);
   }
 
-  printf("Creating a new socket...\n");
+  log_message(info, "Creating a new socket...");
   SOCKET connfd;
   connfd = socket(bind_address->ai_family, bind_address->ai_socktype,
                   bind_address->ai_protocol);
   if (!ISVALIDSOCKET(connfd)) {
-    fprintf(stderr, "socket() failed. (%d)\n", GETSOCKETERRNO());
+    log_message(error, "socket() failed. (%d)\n", GETSOCKETERRNO());
     exit(1);
   }
 
-  printf("Binding address to socket...\n");
+  log_message(info, "Binding address to socket...");
   if (bind(connfd, bind_address->ai_addr, bind_address->ai_addrlen)) {
-    fprintf(stderr, "bind failed. (%d)\n", GETSOCKETERRNO());
+    log_message(error, "bind failed. (%d)\n", GETSOCKETERRNO());
     exit(1);
   }
   freeaddrinfo(bind_address);
@@ -196,9 +197,9 @@ void run_server(SOCKET connfd)
 {
   NodeClient *head = NULL;
 
-  printf("Listening...\n");
+  log_message(info, "Listening...");
   if (listen(connfd, BACKLOG) < 0) {
-    fprintf(stderr, "listen() failed. (%d)\n", GETSOCKETERRNO());
+    log_message(error, "listen() failed. (%d)\n", GETSOCKETERRNO());
     exit(1);
   }
 
@@ -207,7 +208,7 @@ void run_server(SOCKET connfd)
   FD_SET(connfd, &master);
   SOCKET max_socket = connfd;
 
-  printf("Waiting for connections\n");
+  log_message(info, "Waiting for connections.");
 
   while (1) {
 
@@ -215,7 +216,7 @@ void run_server(SOCKET connfd)
     reads = master;
 
     if (select(max_socket+1, &reads, 0, 0, 0) < 0) {
-      fprintf(stderr, "select() failed. (%d)\n", GETSOCKETERRNO());
+      log_message(error, "select() failed. (%d)\n", GETSOCKETERRNO());
       exit(1);
     }
 
@@ -230,13 +231,18 @@ void run_server(SOCKET connfd)
           SOCKET clientfd = accept(connfd, (struct sockaddr *)&client_address,
                                    &client_len);
           if (!ISVALIDSOCKET(clientfd)) {
-            fprintf(stderr, "accept() failed. (%d)\n", GETSOCKETERRNO());
+            log_message(error, "accept() failed. (%d)\n", GETSOCKETERRNO());
             exit(1);
           }
 
           FD_SET(clientfd, &master);
           if (clientfd > max_socket)
             max_socket = clientfd;
+
+          char client_name[100];
+          memset(client_name, 0, sizeof(client_name));
+          recv(clientfd, client_name, 100, 0);
+          log_message(info, "Client's name: %s", client_name);
 
           char address_buffer[100];
           memset(address_buffer, 0, sizeof(address_buffer));
@@ -247,15 +253,16 @@ void run_server(SOCKET connfd)
                       address_buffer, sizeof(address_buffer),
                       service_buffer, sizeof(service_buffer),
                       NI_NUMERICHOST);
-          printf("New connection from %s:%s\n", address_buffer, service_buffer);
+          log_message(info, "New connection from %s:%s", address_buffer, service_buffer);
 
-          Client *newC = newClient(clientfd, address_buffer, address_buffer,
-                                   service_buffer);
+          Client *newC = newClient(clientfd, client_name ,address_buffer,
+                                   address_buffer, service_buffer);
           insertAtEnd(&head, newC);
 
         } else {
 
           char read[8192];
+          memset(read, 0, sizeof(read));
           int bits_read = recv(i, read, 8192, 0);
           if (bits_read < 1) {
             FD_CLR(i, &master);
@@ -263,7 +270,7 @@ void run_server(SOCKET connfd)
             continue;
           }
 
-          printf("msg from client %d:\n%s\n", i, read);
+          log_message(info, "request from client %d: %s", i, read);
 
           char result[50];
           char *colon_pos = strchr(read, '\n');
@@ -318,7 +325,7 @@ void run_server(SOCKET connfd)
             }
 
             if (destfd != 0) {
-              char message[2048];
+              char message[7168];
               memset(message, 0, sizeof(message));
               while (j < bits_read) {
                 strncat(message, &read[j], sizeof(char));
@@ -326,7 +333,7 @@ void run_server(SOCKET connfd)
               }
 
               int bits_sent = send(destfd, message, strlen(message), 0);
-              printf("Sent (%d) bits\n", bits_sent);
+              log_message(info, "Sent (%d) bits", bits_sent);
             } else {
               char msg[] = "user not found.\n";
               send(i, msg, strlen(msg), 0);
@@ -345,7 +352,8 @@ void run_server(SOCKET connfd)
                 temp = temp->next;
               } else {
                 char res[512];
-                snprintf(res, sizeof(res), "user %s:%s\n",
+                snprintf(res, sizeof(res), "%s %s:%s\n",
+                        temp->data->name,
                         temp->data->ip_address,
                         temp->data->port);
 
@@ -366,4 +374,38 @@ void run_server(SOCKET connfd)
 
   while (head != NULL)
     deleteFromFirst(&head);
+}
+
+void log_message(enum Level level, const char *format, ...)
+{
+  va_list args;
+  va_start(args, format);
+
+  time_t current_time = time(NULL);
+  char timestamp[26];
+  strncpy(timestamp, asctime(gmtime(&current_time)), sizeof(timestamp));
+  timestamp[24] = '\0';
+
+  switch (level) {
+  case info:
+    printf("\033[32m[INFO] [%s] - ", timestamp);
+    vprintf(format, args);
+    printf("\033[0m\n");
+    break;
+
+  case warn:
+    printf("\033[33m[WARN] [%s] - ", timestamp);
+    vprintf(format, args);
+    printf("\033[0m\n");
+    break;
+
+  case error:
+    fprintf(stderr, "\033]31m[ERROR] [%s] - ", timestamp);
+    vfprintf(stderr, format, args);
+    fprintf(stderr, "\033[0m\n");
+    break;
+
+  }
+
+  va_end(args);
 }

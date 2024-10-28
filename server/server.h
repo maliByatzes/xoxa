@@ -7,6 +7,7 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 #define BACKLOG 10
 
@@ -23,7 +24,13 @@ typedef struct NodeClient_ {
   struct NodeClient_ *next;
 } NodeClient;
 
-Client *newClient(SOCKET /* clientfd */, char */* hostname */,
+enum Level {
+  warn,
+  info,
+  error
+};
+
+Client *newClient(SOCKET /* clientfd */, char */* name */, char */* hostname */,
                   char */* ip_address */, char */* port */);
 void printClient(Client *client);
 void deleteClient(Client */* this */);
@@ -39,5 +46,7 @@ void printNodes(NodeClient */* head */);
 
 SOCKET create_server();
 void run_server(SOCKET /* connfd */);
+
+void log_message(enum Level level, const char *format, ...);
 
 #endif
