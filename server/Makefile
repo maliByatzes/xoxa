@@ -1,7 +1,7 @@
 # Makefile for server files
 
 CC=clang
-CFLAGS=-fsanitize=address -O2 -fno-omit-frame-pointer -Wall -Wextra
+CFLAGS=-fsanitize=address -O2 -fno-omit-frame-pointer -Wall -Wextra -lsqlite3
 LIBS=-I ../include
 
 SRC_DIR=.
