@@ -9,12 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-typedef struct DB_ {
-  sqlite3 *db;
-  char *filename;
-} DB;
-
-DB *newDB(const char */* filename */);
-void destroyDB(DB */* db */);
+sqlite3 *newDB(const char */* filename */);
+void destroyDB(sqlite3 */* db */);
 
 #endif

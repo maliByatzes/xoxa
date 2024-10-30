@@ -19,7 +19,7 @@ int main(int argc, char **argv)
   }
 #endif
 
-  DB *db;
+  sqlite3 *db;
   db = newDB(argv[1]);
 
   SOCKET connfd = create_server();
