@@ -1,6 +1,7 @@
 /* db.c */
 
 #include "db.h"
+#include <dirent.h>
 
 sqlite3 *newDB(const char *filename)
 {
@@ -42,6 +43,8 @@ sqlite3 *newDB(const char *filename)
     exit(1);
   }
 
+  runMigration(db);
+
   return db;
 }
 
@@ -49,3 +52,38 @@ void destroyDB(sqlite3 *db)
 {
   sqlite3_close(db);
 }
+
+void runMigration(sqlite3 *db)
+{
+  int result;
+  char *err_msg;
+
+  // Create migrations table
+  result = sqlite3_exec(
+    db,
+    "CREATE TABLE IF NOT EXISTS migrations (name TEXT PRIMARY KEY);",
+    NULL,
+    0,
+    &err_msg
+  );
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "create migrations table error: %s\n", err_msg);
+    sqlite3_free(err_msg);
+    exit(1);
+  }
+
+  struct dirent *dp;
+  DIR *dir = opendir(MIGRATION_DIR);
+
+  if (dir == NULL) {
+    fprintf(stderr, "cannot open migration directory: %s\n", MIGRATION_DIR);
+    exit(1);
+  }
+
+  while ((dp = readdir(dir)) != NULL) {
+    printf("%s\n", dp->d_name);
+  }
+
+  closedir(dir);
+}
+
