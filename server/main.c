@@ -21,6 +21,9 @@ int main(int argc, char **argv)
 
   sqlite3 *db;
   db = newDB(argv[1]);
+  if (db == NULL) {
+    return 1;
+  }
 
   SOCKET connfd = create_server();
   run_server(connfd);
@@ -28,8 +31,6 @@ int main(int argc, char **argv)
 #if defined(_WIN32)
   WSACleanup();
 #endif
-
-  destroyDB(db);
 
   return 0;
 }

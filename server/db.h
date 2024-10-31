@@ -13,9 +13,8 @@
 #define MIGRATION_DIR "./server/db/migration"
 
 sqlite3 *newDB(const char */* filename */);
-void destroyDB(sqlite3 */* db */);
 
-void runMigration(sqlite3 */* db */);
-void migrateFile(const char *file);
+int runMigration(sqlite3 */* db */);
+int migrateFile(sqlite3 */* db */, const char */* file */);
 
 #endif

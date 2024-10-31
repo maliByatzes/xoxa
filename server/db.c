@@ -18,13 +18,13 @@ sqlite3 *newDB(const char *filename)
   if (ret) {
     fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
     sqlite3_close(db);
-    exit(1);
-  }
+    return NULL;
+}
 
   if (db == NULL) {
     fprintf(stderr, "Cannot allocate database memory for sqlite3 object.");
     sqlite3_close(db);
-    exit(1);
+    return NULL;
   }
 
   // Enable WAL
@@ -32,7 +32,8 @@ sqlite3 *newDB(const char *filename)
   if (ret != SQLITE_OK) {
     fprintf(stderr, "enable error: %s\n", err_msg);
     sqlite3_free(err_msg);
-    exit(1);
+    sqlite3_close(db);
+    return NULL;
   }
 
   // Enable foreign keys support
@@ -40,20 +41,20 @@ sqlite3 *newDB(const char *filename)
   if (ret != SQLITE_OK) {
     fprintf(stderr, "enable foreign keys support: %s\n", err_msg);
     sqlite3_free(err_msg);
-    exit(1);
+    sqlite3_close(db);
+    return NULL;
   }
 
-  runMigration(db);
+  int s = runMigration(db);
+  if (s == 1) {
+    sqlite3_close(db);
+    return NULL;
+  }
 
   return db;
 }
 
-void destroyDB(sqlite3 *db)
-{
-  sqlite3_close(db);
-}
-
-void runMigration(sqlite3 *db)
+int runMigration(sqlite3 *db)
 {
   int result;
   char *err_msg;
@@ -69,7 +70,7 @@ void runMigration(sqlite3 *db)
   if (result != SQLITE_OK) {
     fprintf(stderr, "create migrations table error: %s\n", err_msg);
     sqlite3_free(err_msg);
-    exit(1);
+    return 1;
   }
 
   struct dirent *dp;
@@ -77,13 +78,127 @@ void runMigration(sqlite3 *db)
 
   if (dir == NULL) {
     fprintf(stderr, "cannot open migration directory: %s\n", MIGRATION_DIR);
-    exit(1);
+    return 1;
   }
 
+  // TODO: sort the filenames in the directory in ascending order
+  // NOTE: use one file for now
   while ((dp = readdir(dir)) != NULL) {
-    printf("%s\n", dp->d_name);
+    int s = migrateFile(db, dp->d_name);
+    if (s == 1) {
+      closedir(dir);
+      return s;
+    }
   }
 
   closedir(dir);
+
+  return 0;
 }
 
+int migrateFile(sqlite3 *db, const char *file) 
+{
+  int result, n;
+  char *err_msg;
+  sqlite3_stmt *stmt;
+
+  // Begin a transaction
+  result = sqlite3_exec(db, "BEGIN;", NULL, 0, &err_msg);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "begin transaction error: %s\n", err_msg);
+    sqlite3_free(err_msg);
+    return 1;
+  }
+  
+  // Ensure migration has not been 
+  const char *select_sql = "SELECT COUNT(*) FROM migrations WHERE name = ?";
+
+  result = sqlite3_prepare_v2(db, select_sql, -1, &stmt, 0);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
+    return 1;
+  }
+
+  sqlite3_bind_text(stmt, 1, file, -1, SQLITE_STATIC);
+
+  while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
+    n = sqlite3_column_int(stmt, 0);
+    printf("n: %d\n", n);
+  }
+
+  if (result != SQLITE_DONE) {
+    fprintf(stderr, "failed to execute query: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
+    return 1;
+  }
+
+  sqlite3_finalize(stmt);
+
+  // Skip migrating the current file
+  if (n != 0) {
+    return 0;    
+  }
+
+  FILE *fptr;
+  fptr = fopen(file, "r");
+
+  if (fptr == NULL) {
+    perror("fopen error");
+    exit(1);
+  }
+
+  char buffer[8192];
+  memset(buffer, 0, sizeof(buffer));
+  char temp[512];
+  memset(temp, 0, sizeof(temp));
+
+  while ((fgets(temp, 512, fptr)) != NULL) {
+    strncat(buffer, temp, strlen(temp));
+    memset(temp, 0, sizeof(temp));
+  }
+
+  printf("buffer: %s\n", buffer);
+
+  result = sqlite3_exec(db, buffer, 0, 0, &err_msg);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to run migration buffer query: %s\n", err_msg);
+    sqlite3_free(err_msg);
+    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
+    return 1;
+  }
+
+  // Insert a record in migrations table
+  const char *insert_sql = "INSERT INTO migrations (name) VALUES (?)";
+
+  result = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, 0);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
+    return 1;
+  }
+
+  sqlite3_bind_text(stmt, 1, file, -1, SQLITE_STATIC);
+
+  result = sqlite3_step(stmt);
+  if (result != SQLITE_DONE) {
+    fprintf(stderr, "failed to execute query: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
+    return 1;
+  }
+
+  sqlite3_finalize(stmt);
+
+  // Commit transaction
+  result = sqlite3_exec(db, "COMMIT;", 0, 0, &err_msg);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to commit transaction: %s\n", err_msg);
+    sqlite3_free(err_msg);
+    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
+    return 1;
+  }
+
+  return 0;
+}

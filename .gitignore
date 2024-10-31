@@ -3,4 +3,3 @@
 bin/
 client/*.o
 server/*.o
-server/db/
