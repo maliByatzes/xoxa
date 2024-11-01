@@ -388,21 +388,21 @@ void log_message(enum Level level, const char *format, ...)
 
   switch (level) {
   case info:
-    printf("\033[32m[INFO] [%s] - ", timestamp);
+    printf("\033[32m[INFO] [%s]\033[0m - ", timestamp);
     vprintf(format, args);
-    printf("\033[0m\n");
+    printf("\n");
     break;
 
   case warn:
-    printf("\033[33m[WARN] [%s] - ", timestamp);
+    printf("\033[33m[WARN] [%s]\033[0m - ", timestamp);
     vprintf(format, args);
-    printf("\033[0m\n");
+    printf("\n");
     break;
 
   case error:
-    fprintf(stderr, "\033]31m[ERROR] [%s] - ", timestamp);
+    fprintf(stderr, "\033]31m[ERROR] [%s]\033[0m - ", timestamp);
     vfprintf(stderr, format, args);
-    fprintf(stderr, "\033[0m\n");
+    fprintf(stderr, "\n");
     break;
 
   }

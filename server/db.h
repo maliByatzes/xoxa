@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <unistd.h>
 
 #define MIGRATION_DIR "./server/db/migration"
 

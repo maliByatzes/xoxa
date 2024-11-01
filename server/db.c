@@ -1,7 +1,6 @@
 /* db.c */
 
 #include "db.h"
-#include <dirent.h>
 
 sqlite3 *newDB(const char *filename)
 {
@@ -124,7 +123,7 @@ int migrateFile(sqlite3 *db, const char *file)
 
   while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
     n = sqlite3_column_int(stmt, 0);
-    printf("n: %d\n", n);
+    // printf("n: %d\n", n);
   }
 
   if (result != SQLITE_DONE) {
@@ -138,15 +137,28 @@ int migrateFile(sqlite3 *db, const char *file)
 
   // Skip migrating the current file
   if (n != 0) {
+    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
     return 0;    
   }
 
+  char cwd[1024];
+  if (getcwd(cwd, sizeof(cwd)) == NULL) {
+    perror("getcwd() error");
+    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
+    return 1;
+  }
+  
+  char filepath[2048];
+  memset(filepath, 0, sizeof(filepath));
+  snprintf(filepath, sizeof(filepath), "%s/server/db/migration/%s", cwd, file);
+  
   FILE *fptr;
-  fptr = fopen(file, "r");
+  fptr = fopen(filepath, "r");
 
   if (fptr == NULL) {
+    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
     perror("fopen error");
-    exit(1);
+    return 1;
   }
 
   char buffer[8192];
@@ -158,8 +170,6 @@ int migrateFile(sqlite3 *db, const char *file)
     strncat(buffer, temp, strlen(temp));
     memset(temp, 0, sizeof(temp));
   }
-
-  printf("buffer: %s\n", buffer);
 
   result = sqlite3_exec(db, buffer, 0, 0, &err_msg);
   if (result != SQLITE_OK) {
