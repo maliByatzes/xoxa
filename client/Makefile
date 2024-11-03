@@ -2,7 +2,6 @@
 
 CC=clang
 CFLAGS=-fsanitize=address -O2 -fno-omit-frame-pointer -Wall -Wextra -lncurses
-LIBS=-I ../include
 
 SRC_DIR=.
 EXE_DIR=../bin
@@ -10,10 +9,10 @@ EXE_DIR=../bin
 EXE= ${EXE_DIR}/client
 
 ${EXE_DIR}/%: *.o
-	${CC} -o $@ $^ ${CFLAGS} ${LIBS}
+	${CC} -o $@ $^ ${CFLAGS}
 
 %.o: ${SRC_DIR}/%.c
-	${CC} -c $^ ${CFLAGS} ${LIBS}
+	${CC} -c $^ ${CFLAGS}
 
 all:		${EXE}
 
