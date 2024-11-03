@@ -69,7 +69,7 @@ int runMigration(sqlite3 *db)
   if (result != SQLITE_OK) {
     fprintf(stderr, "create migrations table error: %s\n", err_msg);
     sqlite3_free(err_msg);
-    return 1;
+    return result;
   }
 
   struct dirent *dp;
@@ -92,7 +92,7 @@ int runMigration(sqlite3 *db)
 
   closedir(dir);
 
-  return 0;
+  return SQLITE_OK;
 }
 
 int migrateFile(sqlite3 *db, const char *file) 
@@ -102,11 +102,8 @@ int migrateFile(sqlite3 *db, const char *file)
   sqlite3_stmt *stmt;
 
   // Begin a transaction
-  result = sqlite3_exec(db, "BEGIN;", NULL, 0, &err_msg);
-  if (result != SQLITE_OK) {
-    fprintf(stderr, "begin transaction error: %s\n", err_msg);
-    sqlite3_free(err_msg);
-    return 1;
+  if ((result = beginTransaction(db)) != SQLITE_OK) {
+    return result;
   }
   
   // Ensure migration has not been 
@@ -115,8 +112,8 @@ int migrateFile(sqlite3 *db, const char *file)
   result = sqlite3_prepare_v2(db, select_sql, -1, &stmt, 0);
   if (result != SQLITE_OK) {
     fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
-    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
-    return 1;
+    rollbackTransaction(db);
+    return result;
   }
 
   sqlite3_bind_text(stmt, 1, file, -1, SQLITE_STATIC);
@@ -129,22 +126,22 @@ int migrateFile(sqlite3 *db, const char *file)
   if (result != SQLITE_DONE) {
     fprintf(stderr, "failed to execute query: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
-    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
-    return 1;
+    rollbackTransaction(db);
+    return result;
   }
 
   sqlite3_finalize(stmt);
 
   // Skip migrating the current file
   if (n != 0) {
-    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
-    return 0;    
+    rollbackTransaction(db);
+    return SQLITE_OK;    
   }
 
   char cwd[1024];
   if (getcwd(cwd, sizeof(cwd)) == NULL) {
     perror("getcwd() error");
-    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
+    rollbackTransaction(db);
     return 1;
   }
   
@@ -156,7 +153,7 @@ int migrateFile(sqlite3 *db, const char *file)
   fptr = fopen(filepath, "r");
 
   if (fptr == NULL) {
-    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
+    rollbackTransaction(db);
     perror("fopen error");
     return 1;
   }
@@ -175,8 +172,8 @@ int migrateFile(sqlite3 *db, const char *file)
   if (result != SQLITE_OK) {
     fprintf(stderr, "failed to run migration buffer query: %s\n", err_msg);
     sqlite3_free(err_msg);
-    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
-    return 1;
+    rollbackTransaction(db);
+    return result;
   }
 
   // Insert a record in migrations table
@@ -185,8 +182,8 @@ int migrateFile(sqlite3 *db, const char *file)
   result = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, 0);
   if (result != SQLITE_OK) {
     fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
-    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
-    return 1;
+    rollbackTransaction(db);
+    return result;
   }
 
   sqlite3_bind_text(stmt, 1, file, -1, SQLITE_STATIC);
@@ -195,20 +192,61 @@ int migrateFile(sqlite3 *db, const char *file)
   if (result != SQLITE_DONE) {
     fprintf(stderr, "failed to execute query: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
-    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
-    return 1;
+    rollbackTransaction(db);
+    return result;
   }
 
   sqlite3_finalize(stmt);
 
   // Commit transaction
-  result = sqlite3_exec(db, "COMMIT;", 0, 0, &err_msg);
-  if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to commit transaction: %s\n", err_msg);
-    sqlite3_free(err_msg);
-    sqlite3_exec(db, "ROLLBACK;", 0, 0, 0);
-    return 1;
+  if ((result = commitTransaction(db)) != SQLITE_OK) {
+    return result;
   }
 
-  return 0;
+  return SQLITE_OK;
+}
+
+int beginTransaction(sqlite3 *db) 
+{
+  int result;
+  char *err_msg;
+
+  result = sqlite3_exec(db, "BEGIN;", NULL, 0, &err_msg);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "begin transaction error: %s\n", err_msg);
+    sqlite3_free(err_msg);
+    return result;
+  }
+
+  return SQLITE_OK;
+}
+
+int commitTransaction(sqlite3 *db) 
+{
+  int result;
+  char *err_msg;  
+
+  result = sqlite3_exec(db, "ROLLBACK;", NULL, 0, &err_msg);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "rollback transaction error: %s\n", err_msg);
+    sqlite3_free(err_msg);
+    return result;
+  }
+
+  return SQLITE_OK;
+}
+
+int rollbackTransaction(sqlite3 *db) 
+{
+  int result;
+  char *err_msg;  
+
+  result = sqlite3_exec(db, "ROLLBACK;", NULL, 0, &err_msg);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "rollback transaction error: %s\n", err_msg);
+    sqlite3_free(err_msg);
+    return result;
+  }
+
+  return SQLITE_OK;
 }
