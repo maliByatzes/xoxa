@@ -4,6 +4,8 @@
 #define __models_h
 
 #include <sqlite3.h>
+#include <stddef.h>
+#include <time.h>
 
 typedef struct User_ {
   int id;
@@ -11,6 +13,11 @@ typedef struct User_ {
   char *created_at;
   char *updated_at;
 } User;
+
+typedef struct UserArr_ {
+  User *users;
+  size_t count;
+} UserArr;
 
 typedef struct UserFilter_ {
   int *id;
@@ -59,7 +66,8 @@ typedef struct ConversationMessageFilter_ {
 } ConversationMessageFilter;
 
 int createUser(sqlite3 *db, User *user);
-User *getUsers(sqlite3 *db, UserFilter filter);
+UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code);
+void freeUsersArr(UserArr *arr);
 
 int createMessage(sqlite3 *db, Message *message);
 Message *getMessages(sqlite3 *db, MessageFilter filter);
