@@ -1,6 +1,8 @@
 /* server.c */
 
 #include "server.h"
+#include "models.h"
+#include "xoxa.h"
 
 Client *newClient(SOCKET clientfd, char *name, char *hostname, char *ip_address, char *port)
 {
@@ -193,9 +195,10 @@ SOCKET create_server()
   return connfd;
 }
 
-void run_server(SOCKET connfd)
+void run_server(SOCKET connfd, sqlite3 *db)
 {
   NodeClient *head = NULL;
+  int err_code, create_user = 1;
 
   log_message(info, "Listening...");
   if (listen(connfd, BACKLOG) < 0) {
@@ -244,6 +247,28 @@ void run_server(SOCKET connfd)
           recv(clientfd, client_name, 100, 0);
           log_message(info, "Client's name: %s", client_name);
 
+          // Check if client's name exists in the users table already
+          UserFilter filter = {0};
+          filter.name = client_name;
+          UserArr *users = getUsers(db, filter, &err_code); 
+
+          if (users) {
+            // Don't create a new user later if users->count == 1
+            printf("Found %zu users.\n", users->count);
+
+            if (users->count == 1) {
+            printf("id: %d, name: %s, created_at: %s, updated_at: %s\n", 
+                   users->users[0].id, users->users[0].name,
+                   users->users[0].created_at, users->users[0].updated_at);
+              create_user = 0;
+            }
+            
+            freeUsersArr(users);
+            free(users);
+          } else {
+            fprintf(stderr, "Failed to get users. Error code: %d\n", err_code);
+          }
+
           char address_buffer[100];
           memset(address_buffer, 0, sizeof(address_buffer));
           char service_buffer[100];
@@ -254,6 +279,19 @@ void run_server(SOCKET connfd)
                       service_buffer, sizeof(service_buffer),
                       NI_NUMERICHOST);
           log_message(info, "New connection from %s:%s", address_buffer, service_buffer);
+
+          // Create a new user on the database
+          if (create_user) {
+            User user = {
+              .name = client_name,
+            };
+            int result = createUser(db, &user);
+
+            if (result != SQLITE_OK) {
+              CLOSESOCKET(clientfd);
+              exit(1);
+            }
+          }
 
           Client *newC = newClient(clientfd, client_name ,address_buffer,
                                    address_buffer, service_buffer);

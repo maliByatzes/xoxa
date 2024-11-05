@@ -21,7 +21,7 @@ typedef struct UserArr_ {
 
 typedef struct UserFilter_ {
   int *id;
-  char **name;
+  char *name;
 } UserFilter;
 
 typedef struct Message_ {

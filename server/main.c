@@ -26,11 +26,13 @@ int main(int argc, char **argv)
   }
 
   SOCKET connfd = create_server();
-  run_server(connfd);
+  run_server(connfd, db);
 
 #if defined(_WIN32)
   WSACleanup();
 #endif
+
+  sqlite3_close(db);
 
   return 0;
 }

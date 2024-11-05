@@ -51,7 +51,7 @@ int createUser(sqlite3 *db, User *user)
   }
 
   result = sqlite3_step(stmt);
-  if (result != SQLITE_OK) {
+  if (result != SQLITE_DONE) {
     fprintf(stderr, "failed to insert data: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     rollbackTransaction(db);
@@ -72,9 +72,9 @@ int createUser(sqlite3 *db, User *user)
 
 UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code) 
 {
-  int result;
+  int result = 0;
   UserArr *users = NULL;
-  sqlite3_stmt *stmt;
+  sqlite3_stmt *stmt = NULL;
 
   *err_code = 0;
 
@@ -103,7 +103,7 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code)
     strncat(select_sql, " name = ?", 9);
   }
 
-  strncat(select_sql, "ORDER BY id;", 12);
+  strncat(select_sql, " ORDER BY id;", 12);
   printf("select sql: %s\n", select_sql);
 
   result = sqlite3_prepare_v2(db, select_sql, -1, &stmt, 0);
@@ -118,11 +118,11 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code)
   // NOTE: Could or Could not work
   if (filter.id != NULL && filter.name != NULL) {
     sqlite3_bind_int(stmt, 1, *filter.id);
-    sqlite3_bind_text(stmt, 2, *filter.name, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, filter.name, -1, SQLITE_STATIC);
   } else if (filter.id != NULL) {
     sqlite3_bind_int(stmt, 1, *filter.id);
   } else if (filter.name != NULL) {
-    sqlite3_bind_text(stmt, 1, *filter.name, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 1, filter.name, -1, SQLITE_STATIC);
   }
 
   size_t capacity = 10;
@@ -203,6 +203,7 @@ void freeUsersArr(UserArr *arr)
   }
 }
 
+/*
 int createMessage(sqlite3 *db, Message *message) 
 {}
 
@@ -219,4 +220,4 @@ int createConvParticipant(sqlite3 *db, ConversationParticipant *conv_part)
 {}
 
 ConversationParticipant *getConvParticipants(sqlite3 *db, ConversationParticipantFilter filter) 
-{}
+{}*/

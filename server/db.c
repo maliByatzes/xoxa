@@ -1,6 +1,7 @@
 /* db.c */
 
 #include "db.h"
+#include <string.h>
 
 sqlite3 *newDB(const char *filename)
 {
@@ -84,7 +85,7 @@ int runMigration(sqlite3 *db)
   // NOTE: use one file for now
   while ((dp = readdir(dir)) != NULL) {
     int s = migrateFile(db, dp->d_name);
-    if (s == 1) {
+    if (s != SQLITE_OK) {
       closedir(dir);
       return s;
     }
@@ -97,6 +98,10 @@ int runMigration(sqlite3 *db)
 
 int migrateFile(sqlite3 *db, const char *file) 
 {
+  if (strcmp(file, ".") == 0 || strcmp(file, "..") == 0) {
+    return SQLITE_OK;
+  }
+  
   int result, n;
   char *err_msg;
   sqlite3_stmt *stmt;
@@ -133,7 +138,7 @@ int migrateFile(sqlite3 *db, const char *file)
   sqlite3_finalize(stmt);
 
   // Skip migrating the current file
-  if (n != 0) {
+  if (n == 1) {
     rollbackTransaction(db);
     return SQLITE_OK;    
   }
@@ -167,7 +172,7 @@ int migrateFile(sqlite3 *db, const char *file)
     strncat(buffer, temp, strlen(temp));
     memset(temp, 0, sizeof(temp));
   }
-
+  
   result = sqlite3_exec(db, buffer, 0, 0, &err_msg);
   if (result != SQLITE_OK) {
     fprintf(stderr, "failed to run migration buffer query: %s\n", err_msg);
@@ -226,9 +231,9 @@ int commitTransaction(sqlite3 *db)
   int result;
   char *err_msg;  
 
-  result = sqlite3_exec(db, "ROLLBACK;", NULL, 0, &err_msg);
+  result = sqlite3_exec(db, "COMMIT;", NULL, 0, &err_msg);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "rollback transaction error: %s\n", err_msg);
+    fprintf(stderr, "commit transaction error: %s\n", err_msg);
     sqlite3_free(err_msg);
     return result;
   }

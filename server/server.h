@@ -3,6 +3,7 @@
 #ifndef __server_h
 #define __server_h
 
+#include "db.h"
 #include "xoxa.h"
 
 #include <stddef.h>
@@ -45,7 +46,7 @@ void deleteAtPosition(NodeClient **/* head */, int /* position */);
 void printNodes(NodeClient */* head */);
 
 SOCKET create_server();
-void run_server(SOCKET /* connfd */);
+void run_server(SOCKET /* connfd */, sqlite3 */* db */);
 
 void log_message(enum Level level, const char *format, ...);
 
