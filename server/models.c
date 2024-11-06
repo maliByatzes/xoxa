@@ -203,13 +203,247 @@ void freeUsersArr(UserArr *arr)
   }
 }
 
-/*
 int createMessage(sqlite3 *db, Message *message) 
-{}
+{
+  int result = 0;
+  sqlite3_stmt *stmt = NULL;
+  time_t current_time;
 
-Message *getMessages(sqlite3 *db, MessageFilter filter) 
-{}
+  if (message->sender_id <= 0) {
+    fprintf(stderr, "sender_id on message struct is required.");
+    return 1;
+  }
+  if (message->receiver_id <= 0) {
+    fprintf(stderr, "receiver_id on message struct is required.");
+    return 1;
+  }
+  if (message->message == NULL) {
+    fprintf(stderr, "message on message struct is required.");
+    return 1;
+  }
 
+  if ((result = beginTransaction(db)) != SQLITE_OK) {
+    return result;
+  }
+
+  current_time = time(NULL);
+  message->created_at = asctime(gmtime(&current_time));
+  message->updated_at = strdup(message->created_at);
+
+  const char *insert_sql = "INSERT INTO messages (sender_id, reciever_id, message, created_at, updated_at) VALUES (?, ?, ?, ?, ?);";
+
+  result = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, 0);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_bind_int(stmt, 1, message->sender_id);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `sender_id` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_bind_int(stmt, 2, message->receiver_id);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `receiver_id` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_bind_text(stmt, 3, message->message, -1, SQLITE_STATIC);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `message` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+  
+  result = sqlite3_bind_text(stmt, 4, message->created_at, -1, SQLITE_STATIC);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `created_at` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+  result = sqlite3_bind_text(stmt, 5, message->updated_at, -1, SQLITE_STATIC);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `updated_at` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_step(stmt);
+  if (result != SQLITE_DONE) {
+    fprintf(stderr, "failed to insert data: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  message->id = (int)sqlite3_last_insert_rowid(db);
+
+  if ((result = commitTransaction(db)) != SQLITE_OK) {
+    sqlite3_finalize(stmt);
+    return result;
+  }
+
+  sqlite3_finalize(stmt);
+
+  return SQLITE_OK;
+}
+
+MessageArr *getMessages(sqlite3 *db, MessageFilter filter, int *error_code) 
+{
+  int result = 0;
+  MessageArr *messages = NULL;
+  sqlite3_stmt *stmt = NULL;
+
+  *error_code = 0;
+
+  messages = (MessageArr *)malloc(sizeof(MessageArr));
+  if (!messages) {
+    *error_code = SQLITE_NOMEM;
+    return NULL;
+  }
+  messages->messages = NULL;
+  messages->count = 0;
+
+  if ((result = beginTransaction(db)) != SQLITE_OK) {
+    free(messages);
+    *error_code = result;
+    return NULL;
+  }
+
+  char select_sql[512];
+  strncat(select_sql, "SELECT id, sender_id, receiver_id, message, created_at, updated_at FROM messages WHERE", 86);
+  
+  if (filter.id != NULL) {
+    strncat(select_sql, " id = ?", 7);
+  }
+
+  if (filter.sender_id != NULL) {
+    strncat(select_sql, " sender_id = ?", 14);
+  }
+
+  if (filter.receiver_id != NULL) {
+    strncat(select_sql, " receiver_id = ?", 16);
+  }
+
+  strncat(select_sql, " ORDER BY id;", 12);
+  printf("select sql: %s\n", select_sql);
+
+  result = sqlite3_prepare_v2(db, select_sql, -1, &stmt, 0);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    rollbackTransaction(db);
+    free(messages);
+    *error_code = result;
+    return NULL;
+  }
+
+  if (filter.id != NULL && filter.sender_id != NULL && filter.receiver_id != NULL) {
+    sqlite3_bind_int(stmt, 1, *filter.id);
+    sqlite3_bind_int(stmt, 2, *filter.sender_id);
+    sqlite3_bind_int(stmt, 3, *filter.receiver_id);
+  } else if (filter.id != NULL && filter.sender_id) {
+    sqlite3_bind_int(stmt, 1, *filter.id);
+    sqlite3_bind_int(stmt, 2, *filter.sender_id);
+  } else if (filter.id != NULL && filter.receiver_id) {
+    sqlite3_bind_int(stmt, 1, *filter.id);
+    sqlite3_bind_int(stmt, 2, *filter.receiver_id);
+  } else if (filter.sender_id != NULL && filter.receiver_id != NULL) {
+    sqlite3_bind_int(stmt, 1, *filter.sender_id);
+    sqlite3_bind_int(stmt, 2, *filter.receiver_id);
+  } else if (filter.id != NULL) {
+    sqlite3_bind_int(stmt, 1, *filter.id);
+  } else if (filter.sender_id != NULL) {
+    sqlite3_bind_int(stmt, 1, *filter.sender_id);
+  } else if (filter.receiver_id != NULL) {
+    sqlite3_bind_int(stmt, 1, *filter.receiver_id);
+  }
+
+  size_t capacity = 10;
+  messages->messages = (Message *)malloc(capacity * sizeof(Message));
+  if (!messages->messages) {
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    free(messages);
+    *error_code = SQLITE_NOMEM;
+    return NULL;
+  }
+
+  while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
+    if (messages->count >= capacity) {
+      capacity *= 2;
+      Message *temp = (Message *)realloc(messages->messages, capacity * sizeof(Message));
+      if (!temp) {
+        fprintf(stderr, "memory allocation failed.\n");
+        sqlite3_finalize(stmt);
+        rollbackTransaction(db);
+        free(messages);
+        *error_code = SQLITE_NOMEM;
+        return NULL;
+      }
+      messages->messages = temp;
+    }
+
+    Message *message = &messages->messages[messages->count];
+
+    message->id = sqlite3_column_int(stmt, 0);
+    message->sender_id = sqlite3_column_int(stmt, 1);
+    message->receiver_id = sqlite3_column_int(stmt, 2);
+
+    const char *created_at = (const char *)sqlite3_column_text(stmt, 3);
+    message->created_at = created_at ? strdup(created_at) : NULL;
+
+    const char *updated_at = (const char *)sqlite3_column_text(stmt, 4);
+    message->updated_at = updated_at ? strdup(updated_at) : NULL;
+
+    messages->count++;
+  }
+
+  if (result != SQLITE_DONE) {
+    fprintf(stderr, "failed to execute query: %s\n", sqlite3_errmsg(db));
+    freeMessagesArr(messages);
+    free(messages);
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    *error_code = result;
+    return NULL;
+  }
+
+  sqlite3_finalize(stmt);
+
+  if ((result = commitTransaction(db)) != SQLITE_OK) {
+    freeMessagesArr(messages);
+    free(messages);
+    *error_code = result;
+    return NULL;
+  }
+
+  return messages;
+}
+
+void freeMessagesArr(MessageArr *arr) {
+  if (arr) {
+    for (size_t i = 0; i < arr->count; i++) {
+      free(arr->messages[i].message);
+      free(arr->messages[i].created_at);
+      free(arr->messages[i].updated_at);
+    }
+    free(arr->messages);
+    arr->messages = NULL;
+    arr->count = 0;
+  }
+}
+
+/*
 int createConversation(sqlite3 *db, Conversation *conv)
 {}
 
