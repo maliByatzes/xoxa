@@ -2,6 +2,7 @@
 
 #include "models.h"
 #include "db.h"
+#include <time.h>
 
 int createUser(sqlite3 *db, User *user) 
 {
@@ -443,13 +444,181 @@ void freeMessagesArr(MessageArr *arr) {
   }
 }
 
-/*
 int createConversation(sqlite3 *db, Conversation *conv)
-{}
+{
+  int result = 0;
+  sqlite3_stmt *stmt = NULL;
+  time_t current_time;
 
-Conversation *getConversationByID(sqlite3 *db, int id) 
-{}
+  if ((result = beginTransaction(db)) != SQLITE_OK) {
+    return result;
+  }
 
+  current_time = time(NULL);
+  conv->created_at = asctime(gmtime(&current_time));
+  conv->updated_at = strdup(conv->created_at);
+
+  const char *insert_sql = "INSERT INTO conversations (created_at, updated_at);";
+
+  result = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, 0);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_bind_text(stmt, 1, conv->created_at, -1, SQLITE_STATIC);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `created_at` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_bind_text(stmt, 1, conv->updated_at, -1, SQLITE_STATIC);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `updated_at` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_step(stmt);
+  if (result != SQLITE_DONE) {
+    fprintf(stderr, "failed to insert data: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  conv->id = (int)sqlite3_last_insert_rowid(db);
+
+  if ((result = commitTransaction(db)) != SQLITE_OK) {
+    sqlite3_finalize(stmt);
+    return result;
+  }
+
+  sqlite3_finalize(stmt);
+
+  return result;
+}
+
+ConversationArr *getConversationByID(sqlite3 *db, int id, int *error_code) 
+{
+  int result = 0;
+  ConversationArr *convs = NULL;
+  sqlite3_stmt *stmt = NULL;
+
+  *error_code = 0;
+
+  convs = (ConversationArr *)malloc(sizeof(ConversationArr));
+  if (!convs) {
+    *error_code = SQLITE_NOMEM;
+    return NULL;
+  }
+  convs->convs = NULL;
+  convs->count = 0;
+
+  if ((result = beginTransaction(db)) != SQLITE_OK) {
+    free(convs);
+    *error_code = result;
+    return NULL;
+  }
+
+  char select_sql[512];
+  strncat(select_sql, "SELECT id, created_at, updated_at FROM conversations WHERE", 58);
+
+  if (id > 0) {
+    strncat(select_sql, " id = ?", 7);
+  }
+  
+  strncat(select_sql, " ORDER BY id;", 12);
+  printf("select sql: %s\n", select_sql);
+
+  result = sqlite3_prepare_v2(db, select_sql, -1, &stmt, 0);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    rollbackTransaction(db);
+    free(convs);
+    *error_code = result;
+    return NULL;
+  }
+
+  if (id > 0) {
+    sqlite3_bind_int(stmt, 1, id);
+  }
+
+  size_t capacity = 10;
+  convs->convs = (Conversation *)malloc(capacity * sizeof(Conversation));
+  if (!convs->convs) {
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    free(convs);
+    *error_code = SQLITE_NOMEM;
+    return NULL;
+  }
+
+  while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
+    if (convs->count >= capacity) {
+      capacity *= 2;
+      Conversation *temp = (Conversation *)realloc(convs->convs, capacity * sizeof(Conversation));
+      if (!temp) {
+        fprintf(stderr, "memory allocation failed.\n");
+        sqlite3_finalize(stmt);
+        rollbackTransaction(db);
+        free(convs);
+        *error_code = SQLITE_NOMEM;
+        return NULL;
+      }
+      convs->convs = temp;
+    }
+
+    Conversation *conv = &convs->convs[convs->count];
+
+    conv->id = sqlite3_column_int(stmt, 0);
+    const char *created_at = (const char *)sqlite3_column_text(stmt, 1);
+    conv->created_at = created_at ? strdup(created_at) : NULL;
+    const char *updated_at = (const char *)sqlite3_column_text(stmt, 2);
+    conv->updated_at = updated_at ? strdup(updated_at) : NULL;
+
+    convs->count++;
+  }
+
+  if (result != SQLITE_DONE) {
+    fprintf(stderr, "failed to execute query: %s\n", sqlite3_errmsg(db));
+    freeConversationArr(convs);
+    free(convs);
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    *error_code = result;
+    return NULL;
+  }
+
+  sqlite3_finalize(stmt);
+
+  if ((result = commitTransaction(db)) != SQLITE_OK) {
+    freeConversationArr(convs);
+    free(convs);
+    *error_code = result;
+    return NULL;
+  }
+
+  return convs;
+}
+
+void freeConversationArr(ConversationArr *arr) 
+{
+  if (arr) {
+    for (size_t i = 0; i < arr->count; i++) {
+      free(arr->convs[i].created_at);
+      free(arr->convs[i].updated_at);
+    }
+    free(arr->convs);
+    arr->convs = NULL;
+    arr->count = 0;
+  }
+}
+/*
 int createConvParticipant(sqlite3 *db, ConversationParticipant *conv_part) 
 {}
 

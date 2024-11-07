@@ -50,6 +50,11 @@ typedef struct Conversation_ {
   char *updated_at;
 } Conversation;
 
+typedef struct ConversationArr_ {
+  Conversation *convs;
+  size_t count;
+} ConversationArr;
+
 typedef struct ConversationParticipant_ {
   int user_id;
   int conversation_id;
@@ -79,7 +84,8 @@ MessageArr *getMessages(sqlite3 *db, MessageFilter filter, int *error_code);
 void freeMessagesArr(MessageArr *arr);
 
 int createConversation(sqlite3 *db, Conversation *conv);
-Conversation *getConversationByID(sqlite3 *db, int id);
+ConversationArr *getConversationByID(sqlite3 *db, int id, int *error_code);
+void freeConversationArr(ConversationArr *arr);
 
 int createConvParticipant(sqlite3 *db, ConversationParticipant *conv_part);
 ConversationParticipant *getConvParticipants(sqlite3 *db, ConversationParticipantFilter filter);
