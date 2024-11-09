@@ -372,6 +372,8 @@ void run_server(SOCKET connfd, sqlite3 *db)
 
               int bits_sent = send(destfd, message, strlen(message), 0);
               log_message(info, "Sent (%d) bits", bits_sent);
+
+              // Create conversation if one doesn't exist OR add messages to an already existing conversation
             } else {
               char msg[] = "user not found.\n";
               send(i, msg, strlen(msg), 0);

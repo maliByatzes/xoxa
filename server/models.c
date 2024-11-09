@@ -2,7 +2,6 @@
 
 #include "models.h"
 #include "db.h"
-#include <time.h>
 
 int createUser(sqlite3 *db, User *user) 
 {
@@ -12,11 +11,6 @@ int createUser(sqlite3 *db, User *user)
   if ((result = beginTransaction(db)) != SQLITE_OK) {
     return result;    
   }
-
-  time_t current_time;
-  current_time = time(NULL);
-  user->created_at = asctime(gmtime(&current_time));
-  user->updated_at = strdup(user->created_at);
 
   const char *insert_sql = "INSERT INTO users (name, created_at, updated_at) VALUES (?, ?, ?);";
 
@@ -30,22 +24,6 @@ int createUser(sqlite3 *db, User *user)
   result = sqlite3_bind_text(stmt, 1, user->name, -1, SQLITE_STATIC);
   if (result != SQLITE_OK) {
     fprintf(stderr, "failed to bind `name` param: %s\n", sqlite3_errmsg(db));
-    sqlite3_finalize(stmt);
-    rollbackTransaction(db);
-    return result;
-  }
-
-  result = sqlite3_bind_text(stmt, 2, user->created_at, -1, SQLITE_STATIC);
-  if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to bind `created_at` param: %s\n", sqlite3_errmsg(db));
-    sqlite3_finalize(stmt);
-    rollbackTransaction(db);
-    return result;
-  }
-
-  result = sqlite3_bind_text(stmt, 2, user->updated_at, -1, SQLITE_STATIC);
-  if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to bind `updated_at` param: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     rollbackTransaction(db);
     return result;
@@ -81,7 +59,7 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code)
 
   users = (UserArr *)malloc(sizeof(UserArr));
   if (!users) {
-    *err_code = SQLITE_NOMEM;
+    *err_code = ERR_NOMEM;
     return NULL;
   }
   users->users = NULL;
@@ -132,7 +110,7 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code)
     sqlite3_finalize(stmt);
     rollbackTransaction(db);
     free(users);
-    *err_code = SQLITE_NOMEM;
+    *err_code = ERR_NOMEM;
     return NULL;
   }
   
@@ -146,7 +124,7 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code)
         free(users);
         sqlite3_finalize(stmt);
         rollbackTransaction(db);
-        *err_code = SQLITE_NOMEM;
+        *err_code = ERR_NOMEM;
         return NULL;
       }
       users->users = temp;
@@ -158,12 +136,6 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code)
 
     const char *name = (const char *)sqlite3_column_text(stmt, 1);
     user->name = name ? strdup(name) : NULL;
-
-    const char *created_at = (const char *)sqlite3_column_text(stmt, 2);
-    user->created_at = created_at ? strdup(created_at) : NULL;
-
-    const char *updated_at = (const char *)sqlite3_column_text(stmt, 3);
-    user->updated_at = updated_at ? strdup(updated_at) : NULL;
 
     users->count++;
   }
@@ -195,8 +167,6 @@ void freeUsersArr(UserArr *arr)
   if (arr) {
     for (size_t i = 0; i < arr->count; i++) {
       free(arr->users[i].name);
-      free(arr->users[i].created_at);
-      free(arr->users[i].updated_at);
     }
     free(arr->users);
     arr->users = NULL;
@@ -204,32 +174,42 @@ void freeUsersArr(UserArr *arr)
   }
 }
 
+int createMessage(sqlite3 *db, Message *msg) 
+{
+  // Create message in the db
+
+  // Check for existing conversations between sender_id and recv_id
+
+  // If the conversation doesnt exist, create a new one
+  // Create a new conversations_participants
+  // Create a new conversations_messages
+  
+  // If the conversation does exist, use that conversation
+  // Add new message to conversations_messages
+}
+
+/*
 int createMessage(sqlite3 *db, Message *message) 
 {
   int result = 0;
   sqlite3_stmt *stmt = NULL;
-  time_t current_time;
 
   if (message->sender_id <= 0) {
     fprintf(stderr, "sender_id on message struct is required.");
-    return 1;
+    return ERR_INVALID;
   }
   if (message->receiver_id <= 0) {
     fprintf(stderr, "receiver_id on message struct is required.");
-    return 1;
+    return ERR_INVALID;
   }
   if (message->message == NULL) {
     fprintf(stderr, "message on message struct is required.");
-    return 1;
+    return ERR_INVALID;
   }
 
   if ((result = beginTransaction(db)) != SQLITE_OK) {
     return result;
   }
-
-  current_time = time(NULL);
-  message->created_at = asctime(gmtime(&current_time));
-  message->updated_at = strdup(message->created_at);
 
   const char *insert_sql = "INSERT INTO messages (sender_id, reciever_id, message, created_at, updated_at) VALUES (?, ?, ?, ?, ?);";
 
@@ -309,7 +289,7 @@ MessageArr *getMessages(sqlite3 *db, MessageFilter filter, int *error_code)
 
   messages = (MessageArr *)malloc(sizeof(MessageArr));
   if (!messages) {
-    *error_code = SQLITE_NOMEM;
+    *error_code = ERR_NOMEM;
     return NULL;
   }
   messages->messages = NULL;
@@ -375,7 +355,7 @@ MessageArr *getMessages(sqlite3 *db, MessageFilter filter, int *error_code)
     sqlite3_finalize(stmt);
     rollbackTransaction(db);
     free(messages);
-    *error_code = SQLITE_NOMEM;
+    *error_code = ERR_NOMEM;
     return NULL;
   }
 
@@ -388,7 +368,7 @@ MessageArr *getMessages(sqlite3 *db, MessageFilter filter, int *error_code)
         sqlite3_finalize(stmt);
         rollbackTransaction(db);
         free(messages);
-        *error_code = SQLITE_NOMEM;
+        *error_code = ERR_NOMEM;
         return NULL;
       }
       messages->messages = temp;
@@ -448,15 +428,10 @@ int createConversation(sqlite3 *db, Conversation *conv)
 {
   int result = 0;
   sqlite3_stmt *stmt = NULL;
-  time_t current_time;
 
   if ((result = beginTransaction(db)) != SQLITE_OK) {
     return result;
   }
-
-  current_time = time(NULL);
-  conv->created_at = asctime(gmtime(&current_time));
-  conv->updated_at = strdup(conv->created_at);
 
   const char *insert_sql = "INSERT INTO conversations (created_at, updated_at);";
 
@@ -513,7 +488,7 @@ ConversationArr *getConversationByID(sqlite3 *db, int id, int *error_code)
 
   convs = (ConversationArr *)malloc(sizeof(ConversationArr));
   if (!convs) {
-    *error_code = SQLITE_NOMEM;
+    *error_code = ERR_NOMEM;
     return NULL;
   }
   convs->convs = NULL;
@@ -554,7 +529,7 @@ ConversationArr *getConversationByID(sqlite3 *db, int id, int *error_code)
     sqlite3_finalize(stmt);
     rollbackTransaction(db);
     free(convs);
-    *error_code = SQLITE_NOMEM;
+    *error_code = ERR_NOMEM;
     return NULL;
   }
 
@@ -567,7 +542,7 @@ ConversationArr *getConversationByID(sqlite3 *db, int id, int *error_code)
         sqlite3_finalize(stmt);
         rollbackTransaction(db);
         free(convs);
-        *error_code = SQLITE_NOMEM;
+        *error_code = ERR_NOMEM;
         return NULL;
       }
       convs->convs = temp;
@@ -618,9 +593,67 @@ void freeConversationArr(ConversationArr *arr)
     arr->count = 0;
   }
 }
-/*
-int createConvParticipant(sqlite3 *db, ConversationParticipant *conv_part) 
-{}
 
-ConversationParticipant *getConvParticipants(sqlite3 *db, ConversationParticipantFilter filter) 
-{}*/
+int createConvParticipant(sqlite3 *db, ConversationParticipant *conv_part) 
+{
+  int result = 0;
+  sqlite3_stmt *stmt;
+
+  if ((result = beginTransaction(db)) != SQLITE_OK) {
+    return result;
+  }
+
+  if (conv_part->user_id <= 0) {
+    fprintf(stderr, "user_id on conversation participant struct is required.\n");
+    rollbackTransaction(db);
+    return ERR_INVALID;
+  }
+
+  if (conv_part->conversation_id <= 0) {
+    fprintf(stderr, "conversation_id on conversation participant struct is required.\n");
+    rollbackTransaction(db);
+    return ERR_INVALID;
+  }
+
+  const char *insert_sql = "INSERT INTO conversation_particapants (user_id, conversation_id) VALUES (?, ?);";
+
+  result = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, 0);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_bind_int(stmt, 1, conv_part->user_id);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `user_id` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_bind_int(stmt, 2, conv_part->conversation_id);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `conversation_id` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_step(stmt);
+  if (result != SQLITE_DONE) {
+    fprintf(stderr, "failed to insert data: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    return result;
+  }
+
+  if ((result = commitTransaction(db)) != SQLITE_OK) {
+    sqlite3_finalize(stmt);
+    return result;
+  }
+
+  sqlite3_finalize(stmt);
+
+  return SQLITE_OK;
+}
+*/

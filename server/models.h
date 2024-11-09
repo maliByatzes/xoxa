@@ -7,11 +7,12 @@
 #include <stddef.h>
 #include <time.h>
 
+#define ERR_INVALID 69
+#define ERR_NOMEM 70
+
 typedef struct User_ {
   int id;
   char *name;
-  char *created_at;
-  char *updated_at;
 } User;
 
 typedef struct UserArr_ {
@@ -29,10 +30,9 @@ typedef struct Message_ {
   int sender_id;
   int receiver_id;
   char *message;
-  char *created_at;
-  char *updated_at;
 } Message;
 
+/*
 typedef struct MessageFilter_ {
   int *id;
   int *sender_id;
@@ -46,48 +46,52 @@ typedef struct MessageArr_ {
 
 typedef struct Conversation_ {
   int id;
-  char *created_at;
-  char *updated_at;
 } Conversation;
-
-typedef struct ConversationArr_ {
-  Conversation *convs;
-  size_t count;
-} ConversationArr;
 
 typedef struct ConversationParticipant_ {
   int user_id;
   int conversation_id;
 } ConversationParticipant;
 
-typedef struct ConversationParticipantFilter_ {
-  int *user_id;
-  int *conversation_id;
-} ConversationParticipantFilter;
+typedef struct ConversationParticipantArr_ {
+  ConversationParticipant *conv_parts;
+  size_t count;
+} ConversationParticipantArr;
 
 typedef struct ConversationMessage_ {
   int conversation_id;
   int message_id;
 } ConversationMessage;
 
-typedef struct ConversationMessageFilter_ {
-  int *conversation_id;
-  int *message_id;
-} ConversationMessageFilter;
+typedef struct ConversationMessageArr_ {
+  ConversationMessage *conv_msgs;
+  size_t count;
+} ConversationMessageArr;
+
+typedef struct ConversationArr_ {
+  Conversation *convs;
+  ConversationParticipantArr *conv_parts;
+  ConversationMessageArr *conv_msgs;
+  size_t count;
+} ConversationArr;*/
 
 int createUser(sqlite3 *db, User *user);
 UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code);
 void freeUsersArr(UserArr *arr);
 
+int createMessage(sqlite3 *db, Message *msg);
+
+/*
 int createMessage(sqlite3 *db, Message *message);
 MessageArr *getMessages(sqlite3 *db, MessageFilter filter, int *error_code);
 void freeMessagesArr(MessageArr *arr);
 
-int createConversation(sqlite3 *db, Conversation *conv);
 ConversationArr *getConversationByID(sqlite3 *db, int id, int *error_code);
 void freeConversationArr(ConversationArr *arr);
 
 int createConvParticipant(sqlite3 *db, ConversationParticipant *conv_part);
-ConversationParticipant *getConvParticipants(sqlite3 *db, ConversationParticipantFilter filter);
+
+int createConvMessage(sqlite3 *db, ConversationMessage *conv_msg);
+*/
 
 #endif
