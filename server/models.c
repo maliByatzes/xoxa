@@ -175,6 +175,53 @@ void freeUsersArr(UserArr *arr)
   }
 }
 
+int getConversationBySenderIDRecvID(sqlite3 *db, int *conv_id, int sender_id, int recv_id)
+{
+  int result = 0;
+  *conv_id = 0;
+  sqlite3_stmt *stmt;
+
+  const char *select_sql = "SELECT cm.conversation_id FROM conversation_messages AS cm JOIN messages AS m ON cm.message_id = m.id WHERE m.sender_id = ? AND m.receiver_id = ?;";
+
+  result = sqlite3_prepare_v2(db, select_sql, -1, &stmt, 0);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    return result;
+  }
+
+  if ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
+    *conv_id = sqlite3_column_int(stmt, 0);
+  }
+
+  if (result != SQLITE_DONE) {
+    fprintf(stderr, "failed to execute query: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    return result;
+  }
+
+  sqlite3_finalize(stmt);
+
+  return SQLITE_OK;
+}
+
+int createConversation(sqlite3 *db, int *conv_id) 
+{
+  int result = 0;
+  sqlite3_stmt *stmt = NULL;
+
+  const char *insert_sql = "INSERT INTO conversations DEFAULT VALUES;";
+
+  result = sqlite3_exec(db, insert_sql, 0, 0, 0);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to execute query: %s\n", sqlite3_errmsg(db));
+    return result;
+  }
+
+  *conv_id = (int)sqlite3_last_insert_rowid(db);
+
+  return SQLITE_OK;
+}
+
 int createMessage(sqlite3 *db, Message *msg) 
 {
   int result = 0;
@@ -227,7 +274,7 @@ int createMessage(sqlite3 *db, Message *msg)
     return result;
   }
 
-  result = sqlite3_bind_text(stmt, 3, msg->message);
+  result = sqlite3_bind_text(stmt, 3, msg->message, -1, SQLITE_STATIC);
   if (result != SQLITE_OK) {
     fprintf(stderr, "failed to bind `message` param: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
@@ -242,14 +289,29 @@ int createMessage(sqlite3 *db, Message *msg)
     rollbackTransaction(db);
     return result;
   }
+  sqlite3_finalize(stmt);
 
   msg->id = (int)sqlite3_last_insert_rowid(db);
   
   // Check for existing conversations between sender_id and recv_id
 
+  int conv_id = 0;
+  if ((result = getConversationBySenderIDRecvID(db, &conv_id, msg->sender_id, msg->receiver_id)) != SQLITE_OK) {
+    rollbackTransaction(db);
+    return result;
+  }
+  
   // If the conversation doesnt exist, create a new one
   // Create a new conversations_participants
   // Create a new conversations_messages
+
+  if (conv_id == 0) {
+    result = createConversation(db, &conv_id);
+    if (result != SQLITE_OK) {
+      rollbackTransaction(db);
+      return result;
+    }
+  }
   
   // If the conversation does exist, use that conversation
   // Add new message to conversations_messages
