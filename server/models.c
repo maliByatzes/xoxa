@@ -2,6 +2,7 @@
 
 #include "models.h"
 #include "db.h"
+#include <unistd.h>
 
 int createUser(sqlite3 *db, User *user) 
 {
@@ -176,8 +177,74 @@ void freeUsersArr(UserArr *arr)
 
 int createMessage(sqlite3 *db, Message *msg) 
 {
+  int result = 0;
+  sqlite3_stmt *stmt = NULL;
+  
   // Create message in the db
 
+  // Do field checking for required values
+  if (msg->sender_id <= 0) {
+    fprintf(stderr, "sender_id is required.\n");
+    return ERR_INVALID;
+  }
+
+  if (msg->receiver_id <= 0) {
+    fprintf(stderr, "receiver_id is required.\n");
+    return ERR_INVALID;
+  }
+
+  if (msg->message == NULL) {
+    fprintf(stderr, "message is required.\n");
+    return ERR_INVALID;
+  }
+
+  if ((result = beginTransaction(db)) != SQLITE_OK) {
+    return result;
+  }
+
+  const char *insert_sql = "INSERT INTO messages (sender_id, receiver_id, message) VALUES (?, ?, ?);";
+
+  result = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, 0);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_bind_int(stmt, 1, msg->sender_id);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `sender_id` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_bind_int(stmt, 2, msg->receiver_id);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `receiver_id` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_bind_text(stmt, 3, msg->message);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "failed to bind `message` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  result = sqlite3_step(stmt);
+  if (result != SQLITE_DONE) {
+    fprintf(stderr, "failed to insert data: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    return result;
+  }
+
+  msg->id = (int)sqlite3_last_insert_rowid(db);
+  
   // Check for existing conversations between sender_id and recv_id
 
   // If the conversation doesnt exist, create a new one
@@ -186,6 +253,16 @@ int createMessage(sqlite3 *db, Message *msg)
   
   // If the conversation does exist, use that conversation
   // Add new message to conversations_messages
+
+
+  if ((result = commitTransaction(db)) != SQLITE_OK) {
+    sqlite3_finalize(stmt);
+    return result;
+  }
+
+  sqlite3_finalize(stmt);
+
+  return SQLITE_OK;
 }
 
 /*
