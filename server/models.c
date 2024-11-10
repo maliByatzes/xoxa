@@ -222,6 +222,12 @@ int createConversation(sqlite3 *db, int *conv_id)
   return SQLITE_OK;
 }
 
+int createConvParticipants(sqlite3 *db, int conv_id) 
+{}
+
+int createConvMessages(sqlite3 *db, int conv_id, int message_id) 
+{}
+
 int createMessage(sqlite3 *db, Message *msg) 
 {
   int result = 0;
@@ -305,24 +311,41 @@ int createMessage(sqlite3 *db, Message *msg)
   // Create a new conversations_participants
   // Create a new conversations_messages
 
+  printf("conv_id: %d\n", conv_id);
   if (conv_id == 0) {
+
     result = createConversation(db, &conv_id);
     if (result != SQLITE_OK) {
       rollbackTransaction(db);
       return result;
     }
-  }
-  
-  // If the conversation does exist, use that conversation
-  // Add new message to conversations_messages
 
+    result = createConvParticipants(db, conv_id);
+    if (result != SQLITE_OK) {
+      rollbackTransaction(db);
+      return result;
+    }
+
+    result = createConvMessages(db, conv_id, msg->id);
+    if (result != SQLITE_OK) {
+      rollbackTransaction(db);
+      return result;
+    }
+
+  } else if (conv_id > 0) {
+
+    // If the conversation does exist, use that conversation
+    // Add new message to conversations_messages
+    result = createConvMessages(db, conv_id, msg->id);
+    if (result != SQLITE_OK) {
+      rollbackTransaction(db);
+      return result;
+    }
+  }
 
   if ((result = commitTransaction(db)) != SQLITE_OK) {
-    sqlite3_finalize(stmt);
     return result;
   }
-
-  sqlite3_finalize(stmt);
 
   return SQLITE_OK;
 }

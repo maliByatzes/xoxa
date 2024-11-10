@@ -257,9 +257,8 @@ void run_server(SOCKET connfd, sqlite3 *db)
             printf("Found %zu users.\n", users->count);
 
             if (users->count == 1) {
-            printf("id: %d, name: %s, created_at: %s, updated_at: %s\n", 
-                   users->users[0].id, users->users[0].name,
-                   users->users[0].created_at, users->users[0].updated_at);
+            printf("id: %d, name: %s\n", 
+                   users->users[0].id, users->users[0].name);
               create_user = 0;
             }
             
