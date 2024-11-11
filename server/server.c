@@ -3,6 +3,7 @@
 #include "server.h"
 #include "models.h"
 #include "xoxa.h"
+#include <curses.h>
 
 Client *newClient(SOCKET clientfd, char *name, char *hostname, char *ip_address, char *port)
 {
@@ -292,7 +293,7 @@ void run_server(SOCKET connfd, sqlite3 *db)
             }
           }
 
-          Client *newC = newClient(clientfd, client_name ,address_buffer,
+          Client *newC = newClient(clientfd, client_name, address_buffer,
                                    address_buffer, service_buffer);
           insertAtEnd(&head, newC);
 
@@ -374,10 +375,38 @@ void run_server(SOCKET connfd, sqlite3 *db)
 
               // Create conversation if one doesn't exist OR add messages to an already existing conversation
 
-              // Get sender'name using `i` from clients
-              // Query db for user_id
-              // Get receiver's name using `destfd` clients
-              // Query db for user_id
+              int sender_id = 0, recv_id = 0;
+
+              NodeClient *temp = head;
+              while (temp != NULL) {
+                if (temp->data->clientfd == i) {
+                  UserFilter f;
+                  strncpy(f.name, temp->data->name, strlen(temp->data->name) + 1);
+                  UserArr *users = getUsers(db, f, 0);
+                  if (users) {
+                    sender_id = users->users[0].id;
+                  }
+                  freeUsersArr(users);
+                } else if (temp->data->clientfd == destfd) {
+                  UserFilter f;
+                  strncpy(f.name, temp->data->name, strlen(temp->data->name) + 1);
+                  UserArr *users = getUsers(db, f, 0);
+                  if (users) {
+                    recv_id = users->users[0].id;
+                  }
+                  freeUsersArr(users);
+                }
+              }
+
+              Message *msg_struct;
+              msg_struct->sender_id = sender_id;
+              msg_struct->receiver_id = recv_id;
+              strncpy(msg_struct->message, message, strlen(message));
+
+              if ((createMessage(db, msg_struct)) != SQLITE_OK) {
+                // exit application for now
+                exit(1);
+              }
             } else {
               char msg[] = "user not found.\n";
               send(i, msg, strlen(msg), 0);
