@@ -380,33 +380,53 @@ void run_server(SOCKET connfd, sqlite3 *db)
               NodeClient *temp = head;
               while (temp != NULL) {
                 if (temp->data->clientfd == i) {
-                  UserFilter f;
-                  strncpy(f.name, temp->data->name, strlen(temp->data->name) + 1);
-                  UserArr *users = getUsers(db, f, 0);
+                  UserFilter f = {0};
+                  f.name = strdup(temp->data->name);
+                  UserArr *users = getUsers(db, f, &err_code);
+
                   if (users) {
+                    printf("Found %zu users.\n", users->count);
                     sender_id = users->users[0].id;
                   }
+
+                  free(f.name);
                   freeUsersArr(users);
+                  free(users);
+                  
+                  temp = temp->next;
                 } else if (temp->data->clientfd == destfd) {
-                  UserFilter f;
-                  strncpy(f.name, temp->data->name, strlen(temp->data->name) + 1);
-                  UserArr *users = getUsers(db, f, 0);
+                  UserFilter f = {0};
+                  f.name = strdup(temp->data->name);
+                  UserArr *users = getUsers(db, f, &err_code);
+
                   if (users) {
+                    printf("Found %zu users.\n", users->count);
                     recv_id = users->users[0].id;
                   }
+
+                  free(f.name);
                   freeUsersArr(users);
+                  free(users);
+
+                  temp = temp->next;
                 }
               }
 
-              Message *msg_struct;
+              printf("sender_id: %d, recv_id: %d\n", sender_id, recv_id);
+              
+              Message *msg_struct = (Message *)malloc(sizeof(Message));
+              memset(msg_struct, 0, sizeof(Message));
+              
               msg_struct->sender_id = sender_id;
               msg_struct->receiver_id = recv_id;
-              strncpy(msg_struct->message, message, strlen(message));
+              msg_struct->message = strdup(message);
 
               if ((createMessage(db, msg_struct)) != SQLITE_OK) {
                 // exit application for now
+                free(msg_struct->message);
                 exit(1);
               }
+              free(msg_struct->message);
             } else {
               char msg[] = "user not found.\n";
               send(i, msg, strlen(msg), 0);

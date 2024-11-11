@@ -4,8 +4,6 @@
 #include "db.h"
 #include <unistd.h>
 
-// TODO: Write better error messaages, include function reponsible in the `fprintf`
-
 int createUser(sqlite3 *db, User *user) 
 {
   int result;
@@ -15,18 +13,18 @@ int createUser(sqlite3 *db, User *user)
     return result;    
   }
 
-  const char *insert_sql = "INSERT INTO users (name, created_at, updated_at) VALUES (?, ?, ?);";
+  const char *insert_sql = "INSERT INTO users (name) VALUES (?);";
 
   result = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, 0);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createUser => failed to prepare statement: %s\n", sqlite3_errmsg(db));
     rollbackTransaction(db);
     return result;
   }
 
   result = sqlite3_bind_text(stmt, 1, user->name, -1, SQLITE_STATIC);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to bind `name` param: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createUser => failed to bind `name` param: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     rollbackTransaction(db);
     return result;
@@ -34,7 +32,7 @@ int createUser(sqlite3 *db, User *user)
 
   result = sqlite3_step(stmt);
   if (result != SQLITE_DONE) {
-    fprintf(stderr, "failed to insert data: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createUser => failed to insert data: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     rollbackTransaction(db);
     return result;
@@ -53,7 +51,7 @@ int createUser(sqlite3 *db, User *user)
 }
 
 UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code) 
-{
+{  
   int result = 0;
   UserArr *users = NULL;
   sqlite3_stmt *stmt = NULL;
@@ -75,6 +73,8 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code)
   }
   
   char select_sql[512];
+  memset(select_sql, 0, sizeof(select_sql));
+  
   strncat(select_sql, "SELECT id, name, created_at, updated_at FROM users WHERE", 56);
 
   if (filter.id != NULL) {
@@ -85,12 +85,12 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code)
     strncat(select_sql, " name = ?", 9);
   }
 
-  strncat(select_sql, " ORDER BY id;", 12);
+  strncat(select_sql, " ORDER BY id;", 13);
   printf("select sql: %s\n", select_sql);
 
   result = sqlite3_prepare_v2(db, select_sql, -1, &stmt, 0);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "getUsers => failed to prepare statement: %s\n", sqlite3_errmsg(db));
     rollbackTransaction(db);
     free(users);
     *err_code = result;
@@ -122,7 +122,7 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code)
       capacity *= 2;
       User *temp = (User *)realloc(users->users, capacity * sizeof(User));
       if (!temp) {
-        fprintf(stderr, "Memory allocation failed.\n");
+        fprintf(stderr, "getUsers => Memory allocation failed.\n");
         freeUsersArr(users);
         free(users);
         sqlite3_finalize(stmt);
@@ -144,7 +144,7 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code)
   }
 
   if (result != SQLITE_DONE) {
-    fprintf(stderr, "failed to execute query: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "getUsers => failed to execute query: %s\n", sqlite3_errmsg(db));
     freeUsersArr(users);
     free(users);
     sqlite3_finalize(stmt);
@@ -188,7 +188,21 @@ int getConversationBySenderIDRecvID(sqlite3 *db, int *conv_id, int sender_id, in
 
   result = sqlite3_prepare_v2(db, select_sql, -1, &stmt, 0);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "getConversationBySenderRecvID => failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    return result;
+  }
+
+  result = sqlite3_bind_int(stmt, 1, sender_id);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "getConversationBySenderRecvID => failed to bind `sender_id` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
+    return result;
+  }
+
+  result = sqlite3_bind_int(stmt, 2, recv_id);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "getConversationBySenderRecvID => failed to bind `receiver_id` param: %s\n", sqlite3_errmsg(db));
+    sqlite3_finalize(stmt);
     return result;
   }
 
@@ -197,7 +211,7 @@ int getConversationBySenderIDRecvID(sqlite3 *db, int *conv_id, int sender_id, in
   }
 
   if (result != SQLITE_DONE) {
-    fprintf(stderr, "failed to execute query: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "getConversationBySenderRecvID => failed to execute query: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     return result;
   }
@@ -215,7 +229,7 @@ int createConversation(sqlite3 *db, int *conv_id)
 
   result = sqlite3_exec(db, insert_sql, 0, 0, 0);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to execute query: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createConversation => failed to execute query: %s\n", sqlite3_errmsg(db));
     return result;
   }
 
@@ -233,27 +247,27 @@ int createConvParticipant(sqlite3 *db, int conv_id, int user_id)
 
   result = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, 0);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createConvPartipant => failed to prepare statement: %s\n", sqlite3_errmsg(db));
     return result;
   }
 
   result = sqlite3_bind_int(stmt, 1, user_id);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to bind `user_id` param: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createConvParticipant => failed to bind `user_id` param: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     return result;
   }
 
   result = sqlite3_bind_int(stmt, 2, conv_id);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to bind `conv_id` param: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createConvParticipant => failed to bind `conv_id` param: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     return result;
   }
 
   result = sqlite3_step(stmt);
   if (result != SQLITE_DONE) {
-    fprintf(stderr, "failed to insert data: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createConvParticipant => failed to insert data: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     return result;
   }
@@ -272,27 +286,27 @@ int createConvMessages(sqlite3 *db, int conv_id, int message_id)
 
   result = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, 0);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createConvMessages => failed to prepare statement: %s\n", sqlite3_errmsg(db));
     return result;
   }
 
   result = sqlite3_bind_int(stmt, 1, conv_id);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to bind `conversation_id` param: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createConvMessages => failed to bind `conversation_id` param: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     return result;
   }
 
   result = sqlite3_bind_int(stmt, 2, message_id);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to bind `message_id` param: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createConvMessages => failed to bind `message_id` param: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     return result;
   }
 
   result = sqlite3_step(stmt);
   if (result != SQLITE_DONE) {
-    fprintf(stderr, "failed to insert data: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createConvMessages => failed to insert data: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     return result;
   }
@@ -311,17 +325,17 @@ int createMessage(sqlite3 *db, Message *msg)
 
   // Do field checking for required values
   if (msg->sender_id <= 0) {
-    fprintf(stderr, "sender_id is required.\n");
+    fprintf(stderr, "createMessage => sender_id is required.\n");
     return ERR_INVALID;
   }
 
   if (msg->receiver_id <= 0) {
-    fprintf(stderr, "receiver_id is required.\n");
+    fprintf(stderr, "createMessage => receiver_id is required.\n");
     return ERR_INVALID;
   }
 
   if (msg->message == NULL) {
-    fprintf(stderr, "message is required.\n");
+    fprintf(stderr, "createMessage => message is required.\n");
     return ERR_INVALID;
   }
 
@@ -333,14 +347,14 @@ int createMessage(sqlite3 *db, Message *msg)
 
   result = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, 0);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createMessage => failed to prepare statement: %s\n", sqlite3_errmsg(db));
     rollbackTransaction(db);
     return result;
   }
 
   result = sqlite3_bind_int(stmt, 1, msg->sender_id);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to bind `sender_id` param: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createMessage => failed to bind `sender_id` param: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     rollbackTransaction(db);
     return result;
@@ -348,7 +362,7 @@ int createMessage(sqlite3 *db, Message *msg)
 
   result = sqlite3_bind_int(stmt, 2, msg->receiver_id);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to bind `receiver_id` param: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createMessage => failed to bind `receiver_id` param: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     rollbackTransaction(db);
     return result;
@@ -356,7 +370,7 @@ int createMessage(sqlite3 *db, Message *msg)
 
   result = sqlite3_bind_text(stmt, 3, msg->message, -1, SQLITE_STATIC);
   if (result != SQLITE_OK) {
-    fprintf(stderr, "failed to bind `message` param: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createMessage => failed to bind `message` param: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     rollbackTransaction(db);
     return result;
@@ -364,7 +378,7 @@ int createMessage(sqlite3 *db, Message *msg)
 
   result = sqlite3_step(stmt);
   if (result != SQLITE_DONE) {
-    fprintf(stderr, "failed to insert data: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "createMessage => failed to insert data: %s\n", sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     rollbackTransaction(db);
     return result;
