@@ -16,7 +16,7 @@ typedef struct {
 
 char *get_env_or_default(const char */* name */, char */* default_value */);
 int get_env_bool(const char */* name */);
-Config load_config();
+Config *load_config();
 void free_config(Config */* cfg */);
 int validate_config(Config */* cfg */);
 void print_config(Config */* cfg */);

@@ -1,17 +1,51 @@
 /* main.c */
 
-#include "client.h"
+#include "app.h"
+#include "ui.h"
+#include <curses.h>
+//#include "client.h"
 
-// TODO: Use the gift of enum to have a status on the current window (active window)
-// TODO: Use struct to keep track of the application entire state
-// TODO: Run the `UI` in an infinite loop to always be listening for events from server && client input
+void run_app(App *app);
+void handle_key(App *app, int ch);
 
 int main()
 {
-  Application app;
-  app = init_application();
-
-  run_application(&app);
+  App *app = new_app();
+  run_app(app);
 
   return 0;
+}
+
+void run_app(App *app) 
+{
+  init_ui(app);
+  
+  for (;;) {
+    draw_ui(app);
+
+    // Event handling...
+    int ch = getch();
+    if (ch != ERR) {
+      handle_key(app, ch);
+    }
+  }
+}
+
+void handle_key(App *app, int ch) 
+{
+  switch (ch) {
+  case 'i':
+    app->current_active_win = CAW_Input;
+    if (app->selected_client >= 0) {
+      // read input from user
+    }
+    break;
+  case 9:
+    toggle_active_window(app);
+    break;
+  case 'q':
+    endwin();
+    exit(0);
+    break;
+  }
 }

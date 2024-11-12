@@ -19,14 +19,14 @@ int get_env_bool(const char *name)
           strcmp(value, "on") == 0);
 }
 
-Config load_config()
+Config *load_config()
 {
-  Config cfg;
+  Config *cfg = (Config *)malloc(sizeof(Config));
 
-  cfg.server_ip = strdup(get_env_or_default("XOXA_SERVER_IP", "127.0.0.1"));
-  cfg.server_port = strdup(get_env_or_default("XOXA_SERVER_PORT", "8080"));
-  cfg.client_name = strdup(get_env_or_default("XOXA_CLIENT_NAME", ""));
-  cfg.debug_mode = get_env_bool("XOXA_DEBUG_MODE");
+  cfg->server_ip = strdup(get_env_or_default("XOXA_SERVER_IP", "127.0.0.1"));
+  cfg->server_port = strdup(get_env_or_default("XOXA_SERVER_PORT", "8080"));
+  cfg->client_name = strdup(get_env_or_default("XOXA_CLIENT_NAME", ""));
+  cfg->debug_mode = get_env_bool("XOXA_DEBUG_MODE");
 
   return cfg;
 }

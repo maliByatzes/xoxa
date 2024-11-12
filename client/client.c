@@ -1,8 +1,8 @@
 /* client.c */
 
 #include "client.h"
-#include <curses.h>
 
+/*
 Application init_application()
 {
   Application app;
@@ -359,4 +359,4 @@ void client_loop(Application *app)
     }
 
   }
-}
+}*/

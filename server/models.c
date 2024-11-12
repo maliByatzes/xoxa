@@ -390,6 +390,7 @@ int createMessage(sqlite3 *db, Message *msg)
   // Check for existing conversations between sender_id and recv_id
 
   int conv_id = 0;
+  // FIXME: This is not returning the conv_id i want, fix
   if ((result = getConversationBySenderIDRecvID(db, &conv_id, msg->sender_id, msg->receiver_id)) != SQLITE_OK) {
     rollbackTransaction(db);
     return result;
