@@ -3,6 +3,9 @@
 #ifndef __client_h
 #define __client_h
 
+#include "app.h"
+#include "xoxa.h"
+
 /*
 #include "xoxa.h"
 #include "config.h"
@@ -28,9 +31,11 @@ void add_message(Application *app, const char *msg, int color_pair);
 void parse_client_list(Application *app, const char *list_data);
 void handle_key(Application *app, int ch);
 char *read_input(Application *app);
-
-SOCKET connect_to_remote(Application *app);
-void client_loop(Application *app);
 */
+
+SOCKET connect_to_remote(App *app);
+void client_loop(App *app);
+
+void fetch_messages_with_select_client(App *app);
 
 #endif

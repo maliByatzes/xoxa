@@ -40,9 +40,7 @@ void handle_key(App *app, int ch)
       // read input from user
     }
     break;
-  case 9:
-    toggle_active_window(app);
-    break;
+  case 27:
   case 'q':
     endwin();
     exit(0);

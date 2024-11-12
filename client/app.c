@@ -5,11 +5,11 @@
 
 App *new_app() 
 {
-  App *app = (App *)malloc(sizeof(App));
+  App *app = (App *)calloc(sizeof(App), 1);
 
-  app->message_count = 0;
   app->client_count = 0;
   app->selected_client = -1;
+  app->current_active_win = CAW_Sidebar;
 
   app->cfg = load_config();
 
@@ -17,6 +17,8 @@ App *new_app()
     free_config(app->cfg);
     exit(1);
   }
+
+  app->clients = (Client *)calloc(sizeof(Client), MAX_CLIENTS);
 
   return app;
 }

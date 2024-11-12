@@ -3,6 +3,7 @@
 #include "ui.h"
 #include "app.h"
 #include <curses.h>
+#include <sys/param.h>
 
 void init_ui(App *app) 
 {
@@ -10,6 +11,7 @@ void init_ui(App *app)
   cbreak();
   noecho();
   raw();
+  curs_set(0);
   keypad(stdscr, TRUE);
 
   if (!has_colors()) {
@@ -27,7 +29,10 @@ void init_ui(App *app)
   init_pair(5, COLOR_RED, COLOR_BLACK);
   init_pair(6, COLOR_BLACK, COLOR_CYAN);
   init_pair(7, COLOR_CYAN, COLOR_BLACK);
+}
 
+void draw_ui(App *app) 
+{
   int max_y, max_x;
   getmaxyx(stdscr, max_y, max_x);
 
@@ -41,10 +46,14 @@ void init_ui(App *app)
   box(app->sidebar_win, 0, 0);
   box(app->input_win, 0, 0);
 
-  wbkgd(app->status_win, COLOR_PAIR(1));
-  wbkgd(app->input_win, COLOR_PAIR(2));
+  mvwprintw(app->sidebar_win, 0, 0, " Client List (%d)", app->client_count);
+  mvwprintw(app->status_win, 0, 1, "Status: <...>");
+  mvwprintw(app->status_win, 1, 1, "<q/Esc> to exit");
+
+  wbkgd(app->status_win, COLOR_PAIR(3));
+  wbkgd(app->input_win, COLOR_PAIR(3));
   wbkgd(app->message_win, COLOR_PAIR(3));
-  wbkgd(app->sidebar_win, COLOR_PAIR(4));
+  wbkgd(app->sidebar_win, COLOR_PAIR(3));
 
   refresh();
   wrefresh(app->message_win);
@@ -53,6 +62,36 @@ void init_ui(App *app)
   wrefresh(app->sidebar_win);
 }
 
-void draw_ui(App *app) 
+void update_status(App *app, const char *status)
 {
+  werase(app->status_win);
+  wbkgd(app->status_win, COLOR_PAIR(1));
+  mvwprintw(app->status_win, 0, 1, "Status: %s", status);
+  mvwprintw(app->status_win, 1, 1, "<UP> / <DOWN>: Navigate | Enter: Select");
+  wrefresh(app->status_win);
+}
+
+void refresh_sidebar(App *app) 
+{
+  werase(app->sidebar_win);
+  box(app->sidebar_win, 0, 0);
+  mvwprintw(app->sidebar_win, 0, 2, " Client List (%d)", app->client_count);
+
+  int display_start = app->sidebar_scroll;
+  int display_end = MIN(app->client_count, display_start + (getmaxy(app->sidebar_win) - 2));
+
+  const char *placeholder = "user";
+  for (int i = display_start; i < display_end; i++) {
+    if (i == app->selected_client) {
+      wattron(app->sidebar_win, COLOR_PAIR(6));
+      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%18s", placeholder);
+      wattroff(app->sidebar_win, COLOR_PAIR(6));
+    } else {      
+      wattron(app->sidebar_win, COLOR_PAIR(7));
+      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%18s", placeholder);
+      wattroff(app->sidebar_win, COLOR_PAIR(7));
+    }
+  }
+
+  wrefresh(app->sidebar_win);
 }

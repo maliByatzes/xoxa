@@ -108,39 +108,6 @@ void init_ui(Application *app)
   wrefresh(app->sidebar_win);
 }
 
-void update_status(Application *app, const char *status)
-{
-  werase(app->status_win);
-  wbkgd(app->status_win, COLOR_PAIR(1));
-  mvwprintw(app->status_win, 0, 1, "Status: %s", status);
-  mvwprintw(app->status_win, 1, 1, "<UP> / <DOWN>: Navigate | Enter: Select");
-  wrefresh(app->status_win);
-}
-
-void refresh_sidebar(Application *app)
-{
-  werase(app->sidebar_win);
-  box(app->sidebar_win, 0, 0);
-  mvwprintw(app->sidebar_win, 0, 2, " Clients (%d)", app->client_count);
-
-  int display_start = app->sidebar_scroll;
-  int display_end = MIN(app->client_count, display_start + (getmaxy(app->sidebar_win) - 2));
-
-  for (int i = display_start; i < display_end; i++) {
-    if (i == app->selected_client) {
-      wattron(app->sidebar_win, COLOR_PAIR(6));
-      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", app->clients[i].name);
-      wattroff(app->sidebar_win, COLOR_PAIR(6));
-    } else {
-      wattron(app->sidebar_win, COLOR_PAIR(7));
-      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", app->clients[i].name);
-      wattroff(app->sidebar_win, COLOR_PAIR(7));
-    }
-  }
-
-  wrefresh(app->sidebar_win);
-}
-
 void add_message(Application *app, const char *msg, int color_pair)
 {
   if (app->message_count < MAX_MESSAGES) {
