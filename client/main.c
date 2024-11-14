@@ -33,21 +33,42 @@ void run_app(App *app)
 
 void handle_key(App *app, int ch) 
 {
-  // NOTE: check for current active window to handle diff input 4 diff win
+  // Global key binds
   switch (ch) {
-  case 'i':
-    app->current_active_win = CAW_Input;
-    if (app->selected_client >= 0) {
-      // read input from user
-    }
-    break;
   case 9:
     toggle_active_window(app);
     break;
-  case 27:
   case 'q':
     endwin();
     exit(0);
     break;
   }
+
+  if (app->current_active_win == CAW_Message) {
+    // NOTE: maybe scroll up and down messages on the screen ??
+  } 
+  else if (app->current_active_win == CAW_Input) {
+    switch (ch) {
+    case KEY_BACKSPACE:
+      // TODO: remove last char on the current buffer
+      break;
+    case KEY_ENTER: // ENTER
+      // TODO: handle sending current message on buffer
+      break;
+    case 27: // ESC
+      // TODO: escape input mode
+      break;
+    }
+  }
+  else if (app->current_active_win == CAW_Sidebar) {
+    switch (ch) {
+    case KEY_UP:
+      // TODO: move up the client list
+      break;
+    case KEY_DOWN:
+      // TODO: move down the client list
+      break;
+    }
+  }
+  
 }

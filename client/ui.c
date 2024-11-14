@@ -44,11 +44,13 @@ void draw_ui(App *app)
   scrollok(app->message_win, TRUE);
 
   box(app->sidebar_win, 0, 0);
+  box(app->status_win, 0, 0);
+  box(app->message_win, 0, 0);
   box(app->input_win, 0, 0);
 
   mvwprintw(app->sidebar_win, 0, 0, " Client List (%d)", app->client_count);
   mvwprintw(app->status_win, 1, 1, "Status: <...>");
-  mvwprintw(app->status_win, 2, 1, "<q/Esc> to exit");
+  mvwprintw(app->status_win, 2, 1, "(q) to exit");
 
   wbkgd(app->status_win, COLOR_PAIR(3));
   wbkgd(app->input_win, COLOR_PAIR(3));
@@ -71,7 +73,7 @@ void draw_ui(App *app)
     box(app->status_win, 0, 0);
     wattroff(app->status_win, COLOR_PAIR(4));
     mvwprintw(app->status_win, 1, 1, "Status: <...>");
-    mvwprintw(app->status_win, 2, 1, "<q/Esc> to exit");
+    mvwprintw(app->status_win, 2, 1, "(q) to exit");
     break;
   case CAW_Sidebar:
     wattron(app->sidebar_win, COLOR_PAIR(4));
