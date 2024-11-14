@@ -39,7 +39,7 @@ void draw_ui(App *app)
   app->sidebar_win = newwin(max_y - STATUS_HEIGHT, SIDEBAR_WIDTH, 0, 0);
   app->message_win = newwin(max_y - INPUT_HEIGHT - STATUS_HEIGHT, max_x - SIDEBAR_WIDTH, 0, SIDEBAR_WIDTH);
   app->input_win = newwin(INPUT_HEIGHT, max_x - SIDEBAR_WIDTH, max_y - INPUT_HEIGHT - STATUS_HEIGHT, SIDEBAR_WIDTH);
-  app->status_win = newwin(STATUS_HEIGHT, max_x, max_y -STATUS_HEIGHT, 0);
+  app->status_win = newwin(STATUS_HEIGHT, max_x, max_y - STATUS_HEIGHT, 0);
 
   scrollok(app->message_win, TRUE);
 
@@ -47,14 +47,40 @@ void draw_ui(App *app)
   box(app->input_win, 0, 0);
 
   mvwprintw(app->sidebar_win, 0, 0, " Client List (%d)", app->client_count);
-  mvwprintw(app->status_win, 0, 1, "Status: <...>");
-  mvwprintw(app->status_win, 1, 1, "<q/Esc> to exit");
+  mvwprintw(app->status_win, 1, 1, "Status: <...>");
+  mvwprintw(app->status_win, 2, 1, "<q/Esc> to exit");
 
   wbkgd(app->status_win, COLOR_PAIR(3));
   wbkgd(app->input_win, COLOR_PAIR(3));
   wbkgd(app->message_win, COLOR_PAIR(3));
   wbkgd(app->sidebar_win, COLOR_PAIR(3));
 
+  switch (app->current_active_win) {
+  case CAW_Message:
+    wattron(app->message_win, COLOR_PAIR(4));
+    box(app->message_win, 0, 0);
+    wattroff(app->message_win, COLOR_PAIR(4));
+    break;
+  case CAW_Input:
+    wattron(app->input_win, COLOR_PAIR(4));
+    box(app->input_win, 0, 0);
+    wattroff(app->input_win, COLOR_PAIR(4));
+    break;
+  case CAW_Status:
+    wattron(app->status_win, COLOR_PAIR(4));
+    box(app->status_win, 0, 0);
+    wattroff(app->status_win, COLOR_PAIR(4));
+    mvwprintw(app->status_win, 1, 1, "Status: <...>");
+    mvwprintw(app->status_win, 2, 1, "<q/Esc> to exit");
+    break;
+  case CAW_Sidebar:
+    wattron(app->sidebar_win, COLOR_PAIR(4));
+    box(app->sidebar_win, 0, 0);
+    wattroff(app->sidebar_win, COLOR_PAIR(4));
+    mvwprintw(app->sidebar_win, 0, 0, " Client List (%d)", app->client_count);
+    break;
+  }
+  
   refresh();
   wrefresh(app->message_win);
   wrefresh(app->input_win);

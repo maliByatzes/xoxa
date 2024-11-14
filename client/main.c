@@ -33,12 +33,16 @@ void run_app(App *app)
 
 void handle_key(App *app, int ch) 
 {
+  // NOTE: check for current active window to handle diff input 4 diff win
   switch (ch) {
   case 'i':
     app->current_active_win = CAW_Input;
     if (app->selected_client >= 0) {
       // read input from user
     }
+    break;
+  case 9:
+    toggle_active_window(app);
     break;
   case 27:
   case 'q':
