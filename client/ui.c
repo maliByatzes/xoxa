@@ -93,9 +93,9 @@ void draw_ui(App *app)
 void update_status(App *app, const char *status)
 {
   werase(app->status_win);
-  wbkgd(app->status_win, COLOR_PAIR(1));
-  mvwprintw(app->status_win, 0, 1, "Status: %s", status);
-  mvwprintw(app->status_win, 1, 1, "<UP> / <DOWN>: Navigate | Enter: Select");
+  box(app->status_win, 0, 0);
+  mvwprintw(app->status_win, 1, 1, "Status: %s", status);
+  mvwprintw(app->status_win, 2, 1, "(q) to exit");
   wrefresh(app->status_win);
 }
 
@@ -112,14 +112,40 @@ void refresh_sidebar(App *app)
   for (int i = display_start; i < display_end; i++) {
     if (i == app->selected_client) {
       wattron(app->sidebar_win, COLOR_PAIR(6));
-      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%18s", placeholder);
+      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", placeholder);
       wattroff(app->sidebar_win, COLOR_PAIR(6));
     } else {      
       wattron(app->sidebar_win, COLOR_PAIR(7));
-      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%18s", placeholder);
+      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", placeholder);
       wattroff(app->sidebar_win, COLOR_PAIR(7));
     }
   }
 
   wrefresh(app->sidebar_win);
+}
+
+char *read_input(App *app) 
+{
+  static char msg_input[MAX_MESSAGE_LENGTH];
+  memset(msg_input, 0, MAX_MESSAGE_LENGTH);
+
+  werase(app->input_win);
+  wattron(app->input_win, COLOR_PAIR(4));
+  box(app->input_win, 0, 0);
+  wattroff(app->input_win, COLOR_PAIR(4));
+
+  if (app->selected_client >= 0) {
+    mvwprintw(app->input_win, 0, 2, "to: %s", app->clients[app->selected_client].name);
+  } else {
+    mvwprintw(app->input_win, 0, 2, "to: fuckn somebody");
+  }
+
+  mvwprintw(app->input_win, 1, 1, "> ");
+  wrefresh(app->input_win);
+
+  echo();
+  mvwgetnstr(app->input_win, 1, 3, msg_input, MAX_MESSAGE_LENGTH - 1);
+  noecho();
+
+  return msg_input;
 }

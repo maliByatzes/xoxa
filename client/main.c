@@ -47,18 +47,15 @@ void handle_key(App *app, int ch)
   if (app->current_active_win == CAW_Message) {
     // NOTE: maybe scroll up and down messages on the screen ??
   } 
-  else if (app->current_active_win == CAW_Input) {
-    switch (ch) {
-    case KEY_BACKSPACE:
-      // TODO: remove last char on the current buffer
-      break;
-    case KEY_ENTER: // ENTER
-      // TODO: handle sending current message on buffer
-      break;
-    case 27: // ESC
-      // TODO: escape input mode
-      break;
+  else if (app->current_active_win == CAW_Input) {    
+    
+    // automatically get input
+    while (1) {
+      char *line = read_input(app);
+      if (strlen(line) == 0) break;
+      update_status(app, line);// temp: just to see the message
     }
+    
   }
   else if (app->current_active_win == CAW_Sidebar) {
     switch (ch) {
