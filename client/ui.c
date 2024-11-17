@@ -69,7 +69,7 @@ void draw_ui(App *app)
   wbkgd(app->input_win, COLOR_PAIR(3));
   wbkgd(app->message_win, COLOR_PAIR(3));
   wbkgd(app->sidebar_win, COLOR_PAIR(3));
-
+  
   switch (app->current_active_win) {
   case CAW_Message:
     wattron(app->message_win, COLOR_PAIR(4));
@@ -100,6 +100,8 @@ void draw_ui(App *app)
     break;
   }
   
+  display_clients(app);
+  
   refresh();
   wrefresh(app->message_win);
   wrefresh(app->input_win);
@@ -115,31 +117,6 @@ void update_status(App *app, const char *status)
   mvwprintw(app->status_win, 2, 1, "(q) to exit");
   wrefresh(app->status_win);
   app->current_status = status;
-}
-
-void refresh_sidebar(App *app) 
-{
-  werase(app->sidebar_win);
-  box(app->sidebar_win, 0, 0);
-  mvwprintw(app->sidebar_win, 0, 2, " Client List (%d)", app->client_count);
-
-  int display_start = app->sidebar_scroll;
-  int display_end = MIN(app->client_count, display_start + (getmaxy(app->sidebar_win) - 2));
-
-  const char *placeholder = "user";
-  for (int i = display_start; i < display_end; i++) {
-    if (i == app->selected_client) {
-      wattron(app->sidebar_win, COLOR_PAIR(6));
-      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", placeholder);
-      wattroff(app->sidebar_win, COLOR_PAIR(6));
-    } else {      
-      wattron(app->sidebar_win, COLOR_PAIR(7));
-      mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", placeholder);
-      wattroff(app->sidebar_win, COLOR_PAIR(7));
-    }
-  }
-
-  wrefresh(app->sidebar_win);
 }
 
 char *read_input(App *app) 
@@ -166,4 +143,41 @@ char *read_input(App *app)
   noecho();
 
   return msg_input;
+}
+
+void display_clients(App *app) 
+{
+  if (app->client_count > 0) {
+    int display_start = app->sidebar_scroll;
+    int display_end = MIN(app->client_count, display_start + (getmaxy(app->sidebar_win) - 2));
+    
+    for (int i = display_start; i < display_end; i++) {
+      if (i == app->selected_client) {
+        wattron(app->sidebar_win, COLOR_PAIR(6));
+        mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", app->clients[i].name);
+        wattroff(app->sidebar_win, COLOR_PAIR(6));
+      } else {
+        wattron(app->sidebar_win, COLOR_PAIR(7));
+        mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", app->clients[i].name);
+        wattroff(app->sidebar_win, COLOR_PAIR(7));
+      }
+    }
+  } else {
+    
+    int display_start = app->sidebar_scroll;
+    int display_end = MIN(3, display_start + (getmaxy(app->sidebar_win) - 2));
+    
+    char *placeholder_name = "user...";
+    for (int i = display_start; i < display_end; i++) {
+      if (i == app->selected_client) {
+        wattron(app->sidebar_win, COLOR_PAIR(6));
+        mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", placeholder_name);
+        wattroff(app->sidebar_win, COLOR_PAIR(6));
+      } else {
+        wattron(app->sidebar_win, COLOR_PAIR(7));
+        mvwprintw(app->sidebar_win, i - display_start + 1, 1, "%-18s", placeholder_name);
+        wattroff(app->sidebar_win, COLOR_PAIR(7));
+      }
+    }
+  }
 }

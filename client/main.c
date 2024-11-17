@@ -46,6 +46,10 @@ void handle_key(App *app, int ch)
 
   if (app->current_active_win == CAW_Message) {
     // NOTE: maybe scroll up and down messages on the screen ??
+    switch (ch) {
+    default:
+      break;
+    }
   } 
   else if (app->current_active_win == CAW_Input) {    
     

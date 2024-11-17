@@ -11,9 +11,9 @@
 #define STATUS_HEIGHT 4
 #define SIDEBAR_WIDTH 30
 #define MAX_MESSAGES 10
-#define MAX_MESSAGE_LENGTH 70
-#define MAX_CLIENTS 50
-#define MAX_CLIENT_NAME 50
+#define MAX_MESSAGE_LENGTH 70 // 50 for message and 20 for client name
+#define MAX_CLIENTS 20
+#define MAX_CLIENT_NAME 20
 
 typedef enum CurrentActiveWindow_ {
   CAW_Message,

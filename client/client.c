@@ -1,6 +1,7 @@
 /* client.c */
 
 #include "client.h"
+#include "app.h"
 
 /*
 Application init_application()
@@ -327,3 +328,45 @@ void client_loop(Application *app)
 
   }
 }*/
+
+void get_clients(App *app, const char *list_data) 
+{
+  app->client_count = 0;
+  char *data_cpy = strdup(list_data);
+  char *line = strtok(data_cpy, "\n");
+
+  while (line != NULL && app->client_count < MAX_CLIENTS) {
+    // `name ip:port`
+    char name[MAX_CLIENT_NAME];
+    char ip[16];
+    char port[6];
+
+    if (sscanf(line, "%s %[^:]:%s", name, ip, port) == 3) {
+      strncpy(app->clients[app->client_count].name, name, MAX_CLIENT_NAME - 1);
+      strncpy(app->clients[app->client_count].ip, ip, 15);
+      strncpy(app->clients[app->client_count].port, port, 5);
+      app->client_count++;
+    }
+
+    line = strtok(NULL, "\n");
+  }
+
+  free(data_cpy);
+}
+
+void get_messages_for_client(App *app, Client *client, const char *data) 
+{
+  // `from: message\nfrom: message...`
+  client->message_count = 0;
+  char *data_cpy = strdup(data);
+  char *line = strtok(data_cpy, "\n");
+
+  while (line != NULL && client->message_count < MAX_MESSAGES) {
+    strncpy(client->messages[app->client_count], line, MAX_MESSAGE_LENGTH - 1);
+    client->message_count++;
+
+    line = strtok(NULL, "\n");
+  }
+
+  free(data_cpy);
+}

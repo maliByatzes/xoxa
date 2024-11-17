@@ -36,6 +36,7 @@ char *read_input(Application *app);
 SOCKET connect_to_remote(App *app);
 void client_loop(App *app);
 
-void fetch_messages_with_select_client(App *app);
+void get_clients(App *app, const char *list_data);
+void get_messages_for_client(App *app, Client *client, const char *data);
 
 #endif

@@ -8,7 +8,7 @@
 void init_ui(App *app);
 void draw_ui(App *app);
 void update_status(App *app, const char *status);
-void refresh_sidebar(App *app);
 char *read_input(App *app);
+void display_clients(App *app);
 
 #endif
