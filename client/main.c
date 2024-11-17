@@ -64,10 +64,20 @@ void handle_key(App *app, int ch)
   else if (app->current_active_win == CAW_Sidebar) {
     switch (ch) {
     case KEY_UP:
-      // TODO: move up the client list
+      if (app->selected_client > 0) {
+        app->selected_client--;
+        if (app->selected_client < app->sidebar_scroll) {
+          app->sidebar_scroll--;
+        }
+      }
       break;
     case KEY_DOWN:
-      // TODO: move down the client list
+      if (app->selected_client < app->client_count - 1) {
+        app->selected_client++;
+        if (app->selected_client >= app->sidebar_scroll) {
+          app->sidebar_scroll++;
+        }
+      }
       break;
     }
   }

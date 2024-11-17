@@ -8,7 +8,7 @@ App *new_app()
   App *app = (App *)calloc(sizeof(App), 1);
 
   app->client_count = 0;
-  app->selected_client = -1;
+  app->selected_client = 0;
   app->current_active_win = CAW_Sidebar;
 
   app->current_status = NULL;

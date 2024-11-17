@@ -181,3 +181,8 @@ void display_clients(App *app)
     }
   }
 }
+
+void display_messages(App *app) 
+{
+  
+}
