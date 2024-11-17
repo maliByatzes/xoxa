@@ -11,6 +11,8 @@ App *new_app()
   app->selected_client = -1;
   app->current_active_win = CAW_Sidebar;
 
+  app->current_status = NULL;
+
   app->cfg = load_config();
 
   if (!validate_config(app->cfg)) {

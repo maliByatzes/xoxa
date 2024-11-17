@@ -41,6 +41,8 @@ typedef struct App_ {
   int selected_client;
   int sidebar_scroll;
     
+  const char *current_status;
+  
   CurrentActiveWindow current_active_win;
   
   Config *cfg;
