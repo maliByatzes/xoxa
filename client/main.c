@@ -1,7 +1,9 @@
 /* main.c */
 
 #include "app.h"
+#include "client.h"
 #include "ui.h"
+#include "xoxa.h"
 #include <curses.h>
 //#include "client.h"
 
@@ -10,18 +12,50 @@ void handle_key(App *app, int ch);
 
 int main()
 {
+#if defined(_WIN32)
+  WSADATA d;
+  if (WSAStartup(MAKEWORD(2,2), &d)) {
+    fprintf(stderr, "Failed to initiliaze.\n");
+    return 1;
+  }
+#endif
+
   App *app = new_app();
+
+  int result = connect_to_remote(app);
+  if (result < 0) {
+    free_app(app);
+    display_exit_message();
+    return 1;
+  }
+  
   run_app(app);
+
+  update_status(app, "Closing connection...");
+  CLOSESOCKET(app->socket_peer);
+
+#if defined (_WIN32)
+  WSACleanup();
+#endif
+  free_app(app);
+
+  display_exit_message();
 
   return 0;
 }
 
 void run_app(App *app) 
 {
-  init_ui(app);
+  init_ui();
   
   for (;;) {
     draw_ui(app);
+    int result = client_loop(app);
+    if (result < 0) {
+      display_exit_message();
+      free_app(app);
+      exit(1);
+    }
 
     // Event handling...
     int ch = getch();

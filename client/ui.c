@@ -6,7 +6,7 @@
 #include <sys/param.h>
 #include <unistd.h>
 
-void init_ui(App *app) 
+void init_ui() 
 {
   initscr();
   cbreak();
@@ -196,4 +196,12 @@ void display_messages(App *app)
 
     wrefresh(app->message_win);
   }
+}
+
+void display_exit_message() 
+{
+  mvprintw(LINES - 1, 0, "Press any key to exit...");
+  refresh();
+  getch();
+  endwin();
 }

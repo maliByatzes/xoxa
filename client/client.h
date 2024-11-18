@@ -5,6 +5,7 @@
 
 #include "app.h"
 #include "xoxa.h"
+#include "ui.h"
 
 /*
 #include "xoxa.h"
@@ -33,8 +34,8 @@ void handle_key(Application *app, int ch);
 char *read_input(Application *app);
 */
 
-SOCKET connect_to_remote(App *app);
-void client_loop(App *app);
+int connect_to_remote(App *app);
+int client_loop(App *app);
 
 void get_clients(App *app, const char *list_data);
 void get_messages_for_client(App *app, Client *client, const char *data);

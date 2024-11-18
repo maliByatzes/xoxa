@@ -5,11 +5,12 @@
 
 #include "app.h"
 
-void init_ui(App *app);
+void init_ui();
 void draw_ui(App *app);
 void update_status(App *app, const char *status);
 char *read_input(App *app);
 void display_clients(App *app);
 void display_messages(App *app);
+void display_exit_message();
 
 #endif
