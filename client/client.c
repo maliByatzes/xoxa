@@ -2,6 +2,7 @@
 
 #include "client.h"
 #include "app.h"
+#include <stdio.h>
 
 /*
 Application init_application()
@@ -369,4 +370,24 @@ void get_messages_for_client(App *app, Client *client, const char *data)
   }
 
   free(data_cpy);
+}
+
+void add_message(App *app, const char *message) 
+{
+  Client *curr_client = &app->clients[app->selected_client];
+
+  char full_msg[MAX_MESSAGE_LENGTH];
+  snprintf(full_msg, MAX_MESSAGE_LENGTH - 1, "%s: %s", curr_client->name, message);
+  
+  if (app->selected_client >= 0) {
+    if (curr_client->message_count < MAX_MESSAGES) {
+      strncpy(curr_client->messages[curr_client->message_count], full_msg, MAX_MESSAGE_LENGTH - 1);
+      curr_client->message_count++;
+    } else {
+      for (int i = 0; i < MAX_MESSAGES - 1; i++) {
+        strcpy(curr_client->messages[i], curr_client->messages[i+1]);
+      }
+      strncpy(curr_client->messages[MAX_MESSAGES - 1], full_msg, MAX_MESSAGE_LENGTH - 1);
+    }
+  }
 }

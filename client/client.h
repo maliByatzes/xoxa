@@ -39,4 +39,6 @@ void client_loop(App *app);
 void get_clients(App *app, const char *list_data);
 void get_messages_for_client(App *app, Client *client, const char *data);
 
+void add_message(App *app, const char *message);
+
 #endif
