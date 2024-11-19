@@ -51,6 +51,8 @@ typedef struct App_ {
 } App;
 
 App *new_app();
+int run_app(App *app);
+int handle_key(App *app, int ch);
 void toggle_active_window(App *app);
 void free_app(App *app);
 

@@ -36,6 +36,7 @@ void free_config(Config *cfg)
   free(cfg->server_ip);
   free(cfg->server_port);
   free(cfg->client_name);
+  free(cfg);
 }
 
 int validate_config(Config *cfg)

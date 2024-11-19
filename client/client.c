@@ -2,10 +2,11 @@
 
 #include "client.h"
 #include "app.h"
+#include "xoxa.h"
 
 int connect_to_remote(App *app) 
 {
-  update_status(app, "Connecting...");
+  // update_status(app, "Connecting...");
 
   struct addrinfo hints;
   memset(&hints, 0, sizeof(hints));
@@ -14,28 +15,23 @@ int connect_to_remote(App *app)
   struct addrinfo *peer_address;
   if (getaddrinfo(app->cfg->server_ip, app->cfg->server_port, &hints,
                   &peer_address)) {
-    char status[100];
-    snprintf(status, sizeof(status), "getaddrinfo() error: %d",
-             GETSOCKETERRNO());
-    update_status(app, status);
-    return -1;
+    fprintf(stderr, "getaddrinfo() error: %d\n", GETSOCKETERRNO());
+    return 1;
   }
 
   SOCKET socket_peer;
   socket_peer = socket(peer_address->ai_family, peer_address->ai_socktype,
                        peer_address->ai_protocol);
   if (!ISVALIDSOCKET(socket_peer)) {
-    char status[100];
-    snprintf(status, sizeof(status), "socket() error: %d", GETSOCKETERRNO());
-    update_status(app, status);
-    return -1;
+    fprintf(stderr, "socket() error: %d\n", GETSOCKETERRNO());
+    freeaddrinfo(peer_address);
+    return 1;
   }
 
   if (connect(socket_peer, peer_address->ai_addr, peer_address->ai_addrlen)) {
-    char status[100];
-    snprintf(status, sizeof(status), "connect() errror: %d", GETSOCKETERRNO());
-    update_status(app, status);
-    return -1;
+    fprintf(stderr, "connect() error: %d\n", GETSOCKETERRNO());
+    freeaddrinfo(peer_address);
+    return 1;
   }
 
   freeaddrinfo(peer_address);
@@ -50,7 +46,7 @@ int connect_to_remote(App *app)
   return 0;
 }
 
-int client_loop(App *app) 
+int read_from_socket(App *app) 
 {
 
   fd_set reads;
@@ -65,7 +61,7 @@ int client_loop(App *app)
     char status[100];
     snprintf(status, sizeof(status), "select error: %d", GETSOCKETERRNO());
     update_status(app, status);
-    return -1;
+    return 1;
   }
 
   // Read data from socket_peer
@@ -75,15 +71,14 @@ int client_loop(App *app)
     int bytes_read = recv(app->socket_peer, read_buffer, 4096, 0);
     if (bytes_read < 1) {
       update_status(app, "Connection close by peer.");
-      return -1;
+      return 1;
     }
     read_buffer[bytes_read] = '\0';
 
     if (strstr(read_buffer, "Client List:\n") == read_buffer) {
       get_clients(app, read_buffer + 13);
     } else {
-      add_message(app, read_buffer); // FIXME: Use `from:` to add message to
-                                     // relevant client
+      add_message(app, read_buffer); 
     }
   }
 
