@@ -56,6 +56,9 @@ int handle_key(App *app, int ch)
   case 9:
     toggle_active_window(app);
     break;
+  case 'l':
+    send_list_cmd(app);
+    break;
   case 'q':
     return 1;
   }

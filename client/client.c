@@ -6,8 +6,6 @@
 
 int connect_to_remote(App *app) 
 {
-  // update_status(app, "Connecting...");
-
   struct addrinfo hints;
   memset(&hints, 0, sizeof(hints));
   hints.ai_socktype = SOCK_STREAM;
@@ -76,6 +74,7 @@ int read_from_socket(App *app)
     read_buffer[bytes_read] = '\0';
 
     if (strstr(read_buffer, "Client List:\n") == read_buffer) {
+      update_status(app, "Recieved client list...");
       get_clients(app, read_buffer + 13);
     } else {
       add_message(app, read_buffer); 
@@ -83,6 +82,11 @@ int read_from_socket(App *app)
   }
 
   return 0;
+}
+
+void send_list_cmd(App *app) 
+{
+  send(app->socket_peer, "list\n", 5, 0);  
 }
 
 void get_clients(App *app, const char *list_data) {
