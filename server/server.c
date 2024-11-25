@@ -327,6 +327,7 @@ void run_server(SOCKET connfd, sqlite3 *db)
             char service_buffer[100];
             int j = 0;
 
+            // discard anything before '\n'
             memset(buf, 0, sizeof(buf));
             while (j < bits_read && read[j] != '\n') ++j;
             ++j;
@@ -350,6 +351,8 @@ void run_server(SOCKET connfd, sqlite3 *db)
             memset(service_buffer, 0, sizeof(service_buffer));
             strncpy(service_buffer, buf, strlen(buf));
 
+            printf("%s %s\n", address_buffer, service_buffer);
+            
             SOCKET destfd = 0;
             NodeClient *temp = head;
 
@@ -363,12 +366,14 @@ void run_server(SOCKET connfd, sqlite3 *db)
             }
 
             if (destfd != 0) {
-              char message[7168];
+              char message[100];
               memset(message, 0, sizeof(message));
               while (j < bits_read) {
                 strncat(message, &read[j], sizeof(char));
                 ++j;
               }
+
+              printf("message: %s\n", message);
 
               int bits_sent = send(destfd, message, strlen(message), 0);
               log_message(info, "Sent (%d) bits", bits_sent);

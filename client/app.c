@@ -71,13 +71,21 @@ int handle_key(App *app, int ch)
     }
   } 
   else if (app->current_active_win == CAW_Input) {    
+    char *line = NULL;
     
     // automatically get input
-    while (1) {
-      char *line = read_input(app);
-      if (strlen(line) == 0) break;
-      update_status(app, line);// temp: just to see the message
-    }
+    // read only one line for now
+    line = read_input(app);
+
+    char complete_request[512];
+    memset(complete_request, 0, sizeof(complete_request));
+    snprintf(complete_request, sizeof(complete_request), "sendto\n%s %s\n%s",
+              app->clients[app->selected_client].ip,
+              app->clients[app->selected_client].port,
+              line
+    );
+
+    send(app->socket_peer, complete_request, strlen(complete_request), 0);
     
   }
   else if (app->current_active_win == CAW_Sidebar) {

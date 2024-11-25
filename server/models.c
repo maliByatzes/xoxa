@@ -184,7 +184,7 @@ int getConversationBySenderIDRecvID(sqlite3 *db, int *conv_id, int sender_id, in
   *conv_id = 0;
   sqlite3_stmt *stmt;
 
-  const char *select_sql = "SELECT cm.conversation_id FROM conversation_messages AS cm JOIN messages AS m ON cm.message_id = m.id WHERE m.sender_id = ? AND m.receiver_id = ?;";
+  const char *select_sql = "SELECT cm.conversation_id FROM conversation_messages AS cm JOIN messages AS m ON cm.message_id = m.id WHERE m.sender_id = ? AND m.receiver_id = ? ORDER BY cm.conversation_id LIMIT 1;";
 
   result = sqlite3_prepare_v2(db, select_sql, -1, &stmt, 0);
   if (result != SQLITE_OK) {
@@ -206,12 +206,12 @@ int getConversationBySenderIDRecvID(sqlite3 *db, int *conv_id, int sender_id, in
     return result;
   }
 
-  if ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
+  while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
     *conv_id = sqlite3_column_int(stmt, 0);
   }
 
   if (result != SQLITE_DONE) {
-    fprintf(stderr, "getConversationBySenderRecvID => failed to execute query: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "getConversationBySenderRecvID => failed to execute query: %d %s\n", result, sqlite3_errmsg(db));
     sqlite3_finalize(stmt);
     return result;
   }
@@ -390,7 +390,6 @@ int createMessage(sqlite3 *db, Message *msg)
   // Check for existing conversations between sender_id and recv_id
 
   int conv_id = 0;
-  // FIXME: This is not returning the conv_id i want, fix
   if ((result = getConversationBySenderIDRecvID(db, &conv_id, msg->sender_id, msg->receiver_id)) != SQLITE_OK) {
     rollbackTransaction(db);
     return result;
