@@ -77,6 +77,7 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code)
   
   strncat(select_sql, "SELECT id, name, created_at, updated_at FROM users WHERE", 56);
 
+  // FIXME: This is wrong `AND` is missing if there is multiple clauses of `WHERE`
   if (filter.id != NULL) {
     strncat(select_sql, " id = ?", 7);
   }
@@ -442,4 +443,108 @@ int createMessage(sqlite3 *db, Message *msg)
   }
 
   return SQLITE_OK;
+}
+
+MessageArr *getMessages(sqlite3 *db, char *sender_id, char *recv_id, int *err_code) {
+  int result = 0;
+  MessageArr *messages = NULL;
+  sqlite3_stmt *stmt = NULL;
+
+  *err_code = 0;
+
+  messages = (MessageArr *)calloc(sizeof(MessageArr), 1);
+  if (!messages) {
+    *err_code = ERR_NOMEM;
+    return NULL;
+  }
+  messages->count = 0;
+  messages->messages = NULL;
+
+  if ((result = beginTransaction(db)) != SQLITE_OK) {
+    free(messages);
+    *err_code = result;
+    return NULL;
+  }
+
+  char select_sql[512];
+  memset(select_sql, 0, sizeof(select_sql));
+
+  // FIXME: Use the filter arg for versatile clauses, hardcode for now
+
+  strncat(select_sql, "SELECT id, sender_id, receiver_id, message, created_at, updated_at FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY id LIMIT 10;", 142);
+  
+  result = sqlite3_prepare_v2(db, select_sql, -1, &stmt, 0);
+  if (result != SQLITE_OK) {
+    fprintf(stderr, "getMessages => failed to prepare statement: %s\n", sqlite3_errmsg(db));
+    rollbackTransaction(db);
+    free(messages);
+    *err_code = result;
+    return NULL;
+  }
+
+  sqlite3_bind_int(stmt, 1, atoi(sender_id));
+  sqlite3_bind_int(stmt, 2, atoi(recv_id));
+  sqlite3_bind_int(stmt, 3, atoi(recv_id));
+  sqlite3_bind_int(stmt, 4, atoi(sender_id));
+
+  size_t capacity = 10;
+  messages->messages = (Message *)calloc(sizeof(Message), capacity);
+  if (!messages->messages) {
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    free(messages);
+    *err_code = ERR_NOMEM;
+    return NULL;
+  }
+
+  while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
+    // NOTE: We won't go over the capacity resizing is unnecessary
+    if (capacity > messages->count) {
+      break;
+    }
+    
+    Message *message = &messages->messages[messages->count];
+
+    message->id = sqlite3_column_int(stmt, 0);
+    message->sender_id = sqlite3_column_int(stmt, 1);
+    message->receiver_id = sqlite3_column_int(stmt, 2);
+    
+    const char *msg = (const char *)sqlite3_column_text(stmt, 3);
+    message->message = msg ? strdup(msg) : NULL;
+
+    messages->count++;
+  }
+
+  if (result != SQLITE_DONE) {
+    fprintf(stderr, "getMessages => failed to execute query: %s\n", sqlite3_errmsg(db));
+    freeMessagesArr(messages);
+    free(messages);
+    sqlite3_finalize(stmt);
+    rollbackTransaction(db);
+    *err_code = result;
+    return NULL;
+  }
+
+  sqlite3_finalize(stmt);
+
+  if ((result = commitTransaction(db))) {
+    freeMessagesArr(messages);
+    free(messages);
+    *err_code = result;
+    return NULL;
+  }
+
+  *err_code = SQLITE_OK;
+  return messages;
+}
+
+void freeMessagesArr(MessageArr *arr) {
+  if (arr) {
+    for (size_t i = 0; i < arr->count; i++) {
+      free(arr->messages[i].message);
+    }
+    free(arr->messages);
+    arr->messages = NULL;
+    arr->count = 0;
+  }
 }

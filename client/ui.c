@@ -101,6 +101,7 @@ void draw_ui(App *app)
   }
   
   display_clients(app);
+  display_messages(app);
   
   refresh();
   wrefresh(app->message_win);

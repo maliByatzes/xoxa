@@ -12,6 +12,7 @@ App *new_app()
   app->selected_client = 0;
   app->current_active_win = CAW_Sidebar;
 
+  app->current_client = NULL;
   app->current_status = NULL;
 
   app->cfg = load_config();
@@ -58,6 +59,7 @@ int handle_key(App *app, int ch)
     break;
   case 'l':
     send_list_cmd(app);
+    goto end;
     break;
   case 'q':
     return 1;
@@ -106,9 +108,13 @@ int handle_key(App *app, int ch)
         }
       }
       break;
+    case 'm':
+      send_get_msgs_cmd(app);
+      break;
     }
   }
   
+end:
   return 0;
 }
 

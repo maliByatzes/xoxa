@@ -463,6 +463,63 @@ void run_server(SOCKET connfd, sqlite3 *db)
             send(i, response, strlen(response), 0);
           } // end "list"
 
+          // Handle `messages` to return messages between two clients
+          if (strcmp(result, "messages") == 0) {
+            char buf[100];
+            char client1[50];
+            char client2[50];
+            int j = 0;
+
+            memset(buf, 0, sizeof(buf));
+            while(j < bits_read && read[j] != '\n') ++j;
+            ++j;
+
+            while (j < bits_read && read[j] != '\n') {
+              strncat(buf, &read[j], sizeof(char));
+              ++j;
+            }
+            ++j;
+
+            memset(client1, 0, sizeof(client1));
+            strncpy(client1, buf, strlen(buf));
+
+            memset(buf, 0, sizeof(buf));
+            while (j < bits_read && read[j] != '\n') {
+              strncat(buf, &read[j], sizeof(char));
+              ++j;
+            }
+            ++j;
+
+            memset(client2, 0, sizeof(client2));
+            strncpy(client2, buf, strlen(buf));
+
+            printf("client1: %s, client2: %s\n", client1, client2);
+
+            MessageArr *messages = getMessages(db, client1, client2, &err_code);
+
+            if (messages) {
+              printf("Found %zu messages.\n", messages->count);
+
+              char msgs[1024];
+              memset(msgs, 0, sizeof(msgs));
+
+              strncat(msgs, "Messages:\n", 10);
+
+              for (size_t i = 0; i < messages->count; i++) {
+                char single_msg[60];
+                memset(single_msg, 0, sizeof(single_msg));
+
+                snprintf(single_msg, sizeof(single_msg), "from: %s\n", messages->messages[i].message);
+                strncat(msgs, single_msg, strlen(single_msg));
+              }
+
+              send(i, msgs, strlen(msgs), 0);
+            } else {
+              // NOTE: Exit application for now
+              exit(1);
+            }
+          } // end "messages"
+
         } // end else
 
       } // end if loop
@@ -498,7 +555,7 @@ void log_message(enum Level level, const char *format, ...)
     break;
 
   case error:
-    fprintf(stderr, "\033]31m[ERROR] [%s]\033[0m - ", timestamp);
+    fprintf(stderr, "\033[31m[ERROR] [%s]\033[0m - ", timestamp);
     vfprintf(stderr, format, args);
     fprintf(stderr, "\n");
     break;

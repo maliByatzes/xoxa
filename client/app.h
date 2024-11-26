@@ -24,8 +24,8 @@ typedef enum CurrentActiveWindow_ {
 
 typedef struct Client_ {
   char name[MAX_CLIENT_NAME];
-  char ip[16];
-  char port[6];
+  char ip[20];
+  char port[20];
   char messages[MAX_MESSAGES][MAX_MESSAGE_LENGTH];
   int message_count;
 } Client;
@@ -41,6 +41,8 @@ typedef struct App_ {
   int selected_client;
   int sidebar_scroll;
     
+  Client *current_client;
+  
   const char *current_status;
   
   CurrentActiveWindow current_active_win;

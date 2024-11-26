@@ -10,6 +10,7 @@
 int connect_to_remote(App *app);
 int read_from_socket(App *app);
 void send_list_cmd(App *app);
+void send_get_msgs_cmd(App *app);
 
 void get_clients(App *app, const char *list_data);
 void get_messages_for_client(App *app, Client *client, const char *data);

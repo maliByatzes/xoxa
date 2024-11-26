@@ -32,18 +32,12 @@ typedef struct Message_ {
   char *message;
 } Message;
 
-/*
-typedef struct MessageFilter_ {
-  int *id;
-  int *sender_id;
-  int *receiver_id;
-} MessageFilter;
-
 typedef struct MessageArr_ {
   Message *messages;
   size_t count;
 } MessageArr;
 
+/*
 typedef struct Conversation_ {
   int id;
 } Conversation;
@@ -80,6 +74,8 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code);
 void freeUsersArr(UserArr *arr);
 
 int createMessage(sqlite3 *db, Message *msg);
+MessageArr *getMessages(sqlite3 *db, char *sender_id, char *recv_id, int *err_code);
+void freeMessagesArr(MessageArr *arr);
 
 /*
 int createMessage(sqlite3 *db, Message *message);

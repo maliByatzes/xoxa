@@ -74,8 +74,11 @@ int read_from_socket(App *app)
     read_buffer[bytes_read] = '\0';
 
     if (strstr(read_buffer, "Client List:\n") == read_buffer) {
-      update_status(app, "Recieved client list...");
+      update_status(app, "Received client list...");
       get_clients(app, read_buffer + 13);
+    } else if (strstr(read_buffer, "Messages:\n") == read_buffer) {
+      update_status(app, "Received messages...");
+      get_messages_for_client(app, &app->clients[app->selected_client], read_buffer + 10);
     } else {
       add_message(app, read_buffer); 
     }
@@ -87,6 +90,15 @@ int read_from_socket(App *app)
 void send_list_cmd(App *app) 
 {
   send(app->socket_peer, "list\n", 5, 0);  
+}
+
+void send_get_msgs_cmd(App *app) {
+  char msg[100];
+  memset(msg, 0, sizeof(msg));
+  snprintf(msg, sizeof(msg), "messages\n%s\n%s\n", 
+           app->cfg->client_name, 
+           app->clients[app->selected_client].name);
+  send(app->socket_peer, msg, strlen(msg), 0);
 }
 
 void get_clients(App *app, const char *list_data) {
