@@ -74,7 +74,7 @@ UserArr *getUsers(sqlite3 *db, UserFilter filter, int *err_code);
 void freeUsersArr(UserArr *arr);
 
 int createMessage(sqlite3 *db, Message *msg);
-MessageArr *getMessages(sqlite3 *db, char *sender_id, char *recv_id, int *err_code);
+MessageArr *getMessages(sqlite3 *db, int sender_id, int recv_id, int *err_code);
 void freeMessagesArr(MessageArr *arr);
 
 /*

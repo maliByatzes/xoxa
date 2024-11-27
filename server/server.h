@@ -50,4 +50,6 @@ void run_server(SOCKET /* connfd */, sqlite3 */* db */);
 
 void log_message(enum Level level, const char *format, ...);
 
+int getUserID(sqlite3 *db, char *name); 
+
 #endif

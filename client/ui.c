@@ -191,8 +191,8 @@ void display_messages(App *app)
     box(app->message_win, 0, 0);
     
     for (int i = 0; i < app->clients[app->selected_client].message_count; i++) {
-      wprintw(app->message_win, "%s\n", app->clients[app->selected_client].messages[i]);
-      wprintw(app->message_win, "\n");  
+      // wprintw(app->message_win, "%s\n", app->clients[app->selected_client].messages[i]);
+      mvwprintw(app->message_win, i, 1, "%s\n\n", app->clients[app->selected_client].messages[i]);
     }
 
     wrefresh(app->message_win);

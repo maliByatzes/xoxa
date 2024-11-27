@@ -495,7 +495,10 @@ void run_server(SOCKET connfd, sqlite3 *db)
 
             printf("client1: %s, client2: %s\n", client1, client2);
 
-            MessageArr *messages = getMessages(db, client1, client2, &err_code);
+            int sender_id = getUserID(db, client1);
+            int recv_id = getUserID(db, client2);
+            
+            MessageArr *messages = getMessages(db, sender_id, recv_id, &err_code);
 
             if (messages) {
               printf("Found %zu messages.\n", messages->count);
@@ -563,4 +566,26 @@ void log_message(enum Level level, const char *format, ...)
   }
 
   va_end(args);
+}
+
+int getUserID(sqlite3 *db, char *name) 
+{
+  UserFilter filter = {0};
+  int err_code;
+  int id;
+  
+  filter.name = name;
+  UserArr *users = getUsers(db, filter, &err_code);
+
+  if (users) {
+    printf("Found %zu users.\n", users->count);
+    id = users->users[0].id;
+    freeUsersArr(users);
+    free(users);
+    return id;
+  } else {
+    freeUsersArr(users);
+    free(users);
+    return -1;
+  }
 }

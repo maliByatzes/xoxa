@@ -169,4 +169,6 @@ void add_message(App *app, const char *message) {
       }
     }
   }
+
+  free(msg_cpy);
 }

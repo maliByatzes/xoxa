@@ -2,7 +2,6 @@
 
 #include "models.h"
 #include "db.h"
-#include <unistd.h>
 
 int createUser(sqlite3 *db, User *user) 
 {
@@ -445,7 +444,7 @@ int createMessage(sqlite3 *db, Message *msg)
   return SQLITE_OK;
 }
 
-MessageArr *getMessages(sqlite3 *db, char *sender_id, char *recv_id, int *err_code) {
+MessageArr *getMessages(sqlite3 *db, int sender_id, int recv_id, int *err_code) {
   int result = 0;
   MessageArr *messages = NULL;
   sqlite3_stmt *stmt = NULL;
@@ -471,7 +470,8 @@ MessageArr *getMessages(sqlite3 *db, char *sender_id, char *recv_id, int *err_co
 
   // FIXME: Use the filter arg for versatile clauses, hardcode for now
 
-  strncat(select_sql, "SELECT id, sender_id, receiver_id, message, created_at, updated_at FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY id LIMIT 10;", 142);
+  strncat(select_sql, "SELECT id, sender_id, receiver_id, message FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY id LIMIT 10;", 184);
+  printf("%s\n", select_sql);
   
   result = sqlite3_prepare_v2(db, select_sql, -1, &stmt, 0);
   if (result != SQLITE_OK) {
@@ -482,10 +482,12 @@ MessageArr *getMessages(sqlite3 *db, char *sender_id, char *recv_id, int *err_co
     return NULL;
   }
 
-  sqlite3_bind_int(stmt, 1, atoi(sender_id));
-  sqlite3_bind_int(stmt, 2, atoi(recv_id));
-  sqlite3_bind_int(stmt, 3, atoi(recv_id));
-  sqlite3_bind_int(stmt, 4, atoi(sender_id));
+  printf("sender_id: %d, recv_id: %d\n", sender_id, recv_id);
+  
+  sqlite3_bind_int(stmt, 1, sender_id);
+  sqlite3_bind_int(stmt, 2, recv_id);
+  sqlite3_bind_int(stmt, 3, recv_id);
+  sqlite3_bind_int(stmt, 4, sender_id);
 
   size_t capacity = 10;
   messages->messages = (Message *)calloc(sizeof(Message), capacity);
@@ -499,9 +501,9 @@ MessageArr *getMessages(sqlite3 *db, char *sender_id, char *recv_id, int *err_co
 
   while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
     // NOTE: We won't go over the capacity resizing is unnecessary
-    if (capacity > messages->count) {
-      break;
-    }
+    // if (capacity > messages->count) {
+    //  break;
+    // }
     
     Message *message = &messages->messages[messages->count];
 
