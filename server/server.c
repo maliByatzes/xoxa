@@ -512,8 +512,13 @@ void run_server(SOCKET connfd, sqlite3 *db)
                 char single_msg[60];
                 memset(single_msg, 0, sizeof(single_msg));
 
-                snprintf(single_msg, sizeof(single_msg), "from: %s\n", messages->messages[i].message);
-                strncat(msgs, single_msg, strlen(single_msg));
+                if (sender_id == messages->messages[i].sender_id) {
+                  snprintf(single_msg, sizeof(single_msg), "%s: %s\n", client1, messages->messages[i].message);
+                  strncat(msgs, single_msg, strlen(single_msg));
+                } else if (recv_id == messages->messages[i].sender_id) {
+                  snprintf(single_msg, sizeof(single_msg), "%s: %s\n", client2, messages->messages[i].message);
+                  strncat(msgs, single_msg, strlen(single_msg));
+                }
               }
 
               send(i, msgs, strlen(msgs), 0);
