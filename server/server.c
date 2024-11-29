@@ -378,8 +378,6 @@ void run_server(SOCKET connfd, sqlite3 *db)
               int bits_sent = send(destfd, message, strlen(message), 0);
               log_message(info, "Sent (%d) bits", bits_sent);
 
-              // Create conversation if one doesn't exist OR add messages to an already existing conversation
-
               int sender_id = 0, recv_id = 0;
 
               NodeClient *temp = head;

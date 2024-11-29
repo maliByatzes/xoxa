@@ -132,9 +132,9 @@ void get_messages_for_client(App *app, Client *client, const char *data) {
   char *line = strtok(data_cpy, "\n");
 
   while (line != NULL && client->message_count < MAX_MESSAGES) {
-    strncpy(client->messages[app->client_count], line, MAX_MESSAGE_LENGTH - 1);
+    strncpy(client->messages[client->message_count], line, MAX_MESSAGE_LENGTH - 1);
     client->message_count++;
-
+    
     line = strtok(NULL, "\n");
   }
 

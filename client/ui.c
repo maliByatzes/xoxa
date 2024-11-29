@@ -186,17 +186,19 @@ void display_clients(App *app)
 void display_messages(App *app) 
 {
   // TODO: display a message in diff color depending on the sender...
-  if (app->selected_client >= 0) {
-    werase(app->message_win);
-    box(app->message_win, 0, 0);
-    
-    for (int i = 0; i < app->clients[app->selected_client].message_count; i++) {
-      // wprintw(app->message_win, "%s\n", app->clients[app->selected_client].messages[i]);
-      mvwprintw(app->message_win, i, 1, "%s\n\n", app->clients[app->selected_client].messages[i]);
-    }
 
-    wrefresh(app->message_win);
+  wclear(app->message_win);
+
+  if (app->selected_client >= 0) {    
+    int y = 1;
+    for (int i = 0; i < app->clients[app->selected_client].message_count; i++) {
+      mvwprintw(app->message_win, y, 2, "%s", app->clients[app->selected_client].messages[i]);
+      y++;
+    }
   }
+  
+  box(app->message_win, 0, 0);
+  wrefresh(app->message_win);
 }
 
 void display_exit_message() 
