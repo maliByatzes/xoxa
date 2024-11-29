@@ -2,6 +2,11 @@
 
 #include "client.h"
 
+// TODO: use the beautiful gift of threads to separate reading
+// keys/input from user to the main/or whatever thread that is
+// updating the ui. This will help to not block the ui by
+// waiting for input before updating it.
+
 int main()
 {
 #if defined(_WIN32)
