@@ -78,7 +78,7 @@ int read_from_socket(App *app)
       get_clients(app, read_buffer + 13);
     } else if (strstr(read_buffer, "Messages:\n") == read_buffer) {
       update_status(app, "Received messages...");
-      get_messages_for_client(app, &app->clients[app->selected_client], read_buffer + 10);
+      get_messages_for_client(&app->clients[app->selected_client], read_buffer + 10);
     } else {
       add_message(app, read_buffer); 
     }
@@ -125,7 +125,7 @@ void get_clients(App *app, const char *list_data) {
   free(data_cpy);
 }
 
-void get_messages_for_client(App *app, Client *client, const char *data) {
+void get_messages_for_client(Client *client, const char *data) {
   // `from: message\nfrom: message...`
   client->message_count = 0;
   char *data_cpy = strdup(data);
