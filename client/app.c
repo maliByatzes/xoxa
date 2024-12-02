@@ -48,7 +48,12 @@ int run_app(App *app)
 void *event_handling(void *arg) 
 {
   App *app = (App *)arg;
+  int local_running = 1;
 
+  pthread_mutex_lock(&app->mutex);
+  local_running = app->running;
+  pthread_mutex_unlock(&app->mutex);
+  
   while (app->running) {
     // Event handling...
     int ch = getch();
