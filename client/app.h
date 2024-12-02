@@ -6,6 +6,7 @@
 #include "config.h"
 #include "xoxa.h"
 #include <curses.h>
+#include <pthread.h>
 
 #define INPUT_HEIGHT 3
 #define STATUS_HEIGHT 4
@@ -50,10 +51,15 @@ typedef struct App_ {
   Config *cfg;
 
   SOCKET socket_peer;
+
+  int running;
+  pthread_mutex_t mutex;
 } App;
 
 App *new_app();
 int run_app(App *app);
+void *event_handling(void *arg);
+void *ui_handling(void *arg);
 int handle_key(App *app, int ch);
 void toggle_active_window(App *app);
 void free_app(App *app);

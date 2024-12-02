@@ -1,7 +1,7 @@
 # Makefile for client files
 
 CC=clang
-CFLAGS=-fsanitize=address -O2 -fno-omit-frame-pointer -Wall -Wextra -lncurses
+CFLAGS=-fsanitize=address -O2 -fno-omit-frame-pointer -Wall -Wextra -lncurses -pthread
 
 SRC_DIR=.
 EXE_DIR=../bin

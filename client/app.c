@@ -3,6 +3,7 @@
 #include "app.h"
 #include "ui.h"
 #include "client.h"
+#include <pthread.h>
 
 App *new_app() 
 {
@@ -24,6 +25,9 @@ App *new_app()
 
   app->clients = (Client *)calloc(sizeof(Client), MAX_CLIENTS);
 
+  app->running = 1;
+  pthread_mutex_init(&app->mutex, NULL);
+  
   return app;
 }
 
@@ -31,12 +35,21 @@ int run_app(App *app)
 {
   init_ui();
   
-  for (;;) {
-    draw_ui(app);
-    if (read_from_socket(app)) {
-      return 1;
-    }
+  pthread_t event_handling_thread, ui_thread;
+  pthread_create(&event_handling_thread, NULL, event_handling, app);
+  pthread_create(&ui_thread, NULL, ui_handling, app);
 
+  pthread_join(event_handling_thread, NULL);
+  pthread_join(ui_thread, NULL);
+  
+  return 0;
+}
+
+void *event_handling(void *arg) 
+{
+  App *app = (App *)arg;
+
+  while (app->running) {
     // Event handling...
     int ch = getch();
     if (ch != ERR) {
@@ -45,9 +58,27 @@ int run_app(App *app)
         return 0;
       }
     }
+
+    usleep(100000);
   }
 
-  return 0;
+  return NULL;
+}
+
+void *ui_handling(void *arg) 
+{
+  App *app = (App *)arg;
+
+  while (app->running) {
+    draw_ui(app);
+    if (read_from_socket(app)) {
+      return NULL; // FIXME: This is wrong
+    }
+    
+    usleep(100000);
+  }
+
+  return NULL;
 }
 
 int handle_key(App *app, int ch) 
@@ -62,6 +93,7 @@ int handle_key(App *app, int ch)
     goto end;
     break;
   case 'q':
+    app->running = 0;
     return 1;
   }
 
@@ -138,6 +170,7 @@ void toggle_active_window(App *app)
 
 void free_app(App *app) 
 {
+  pthread_mutex_destroy(&app->mutex);
   free(app->clients);
   free_config(app->cfg);
   free(app);
