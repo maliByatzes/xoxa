@@ -4,9 +4,10 @@
 #include "app.h"
 #include <curses.h>
 #include <sys/param.h>
+#include <sys/time.h>
 #include <unistd.h>
 
-void init_ui() 
+void draw_ui(App *app) 
 {
   initscr();
   cbreak();
@@ -30,10 +31,9 @@ void init_ui()
   init_pair(5, COLOR_RED, COLOR_BLACK);
   init_pair(6, COLOR_BLACK, COLOR_CYAN);
   init_pair(7, COLOR_CYAN, COLOR_BLACK);
-}
 
-void draw_ui(App *app) 
-{
+  gettimeofday(&app->last_update, NULL);
+
   int max_y, max_x;
   getmaxyx(stdscr, max_y, max_x);
 
@@ -44,19 +44,17 @@ void draw_ui(App *app)
 
   scrollok(app->message_win, TRUE);
 
+  // Draw sidebar window
   box(app->sidebar_win, 0, 0);
-  box(app->status_win, 0, 0);
-  box(app->message_win, 0, 0);
-  box(app->input_win, 0, 0);
-
   mvwprintw(app->sidebar_win, 0, 0, " Client List (%d)", app->client_count);
-  if (app->current_status != NULL) {
-    mvwprintw(app->status_win, 1, 1, "Status: %s", app->current_status);
-  } else {
-    mvwprintw(app->status_win, 1, 1, "Status: <...>");
-  }
-  mvwprintw(app->status_win, 2, 1, "(q) to exit");
+  wbkgd(app->sidebar_win, COLOR_PAIR(3));
 
+  // Draw message window
+  box(app->message_win, 0, 0);
+  wbkgd(app->message_win, COLOR_PAIR(3));
+
+  // Draw input window
+  box(app->input_win, 0, 0);
   if (app->selected_client >= 0) {
     mvwprintw(app->input_win, 0, 2, "to: %s", app->clients[app->selected_client].name);
   } else {
@@ -64,50 +62,94 @@ void draw_ui(App *app)
   }
 
   mvwprintw(app->input_win, 1, 1, "> ");
-
-  wbkgd(app->status_win, COLOR_PAIR(3));
   wbkgd(app->input_win, COLOR_PAIR(3));
-  wbkgd(app->message_win, COLOR_PAIR(3));
-  wbkgd(app->sidebar_win, COLOR_PAIR(3));
   
-  switch (app->current_active_win) {
-  case CAW_Message:
-    wattron(app->message_win, COLOR_PAIR(4));
-    box(app->message_win, 0, 0);
-    wattroff(app->message_win, COLOR_PAIR(4));
-    break;
-  case CAW_Input:
-    wattron(app->input_win, COLOR_PAIR(4));
-    box(app->input_win, 0, 0);
-    wattroff(app->input_win, COLOR_PAIR(4));
-    break;
-  case CAW_Status:
-    wattron(app->status_win, COLOR_PAIR(4));
-    box(app->status_win, 0, 0);
-    wattroff(app->status_win, COLOR_PAIR(4));
-    if (app->current_status != NULL) {
-      mvwprintw(app->status_win, 1, 1, "Status: %s", app->current_status);
-    } else {
-      mvwprintw(app->status_win, 1, 1, "Status: <...>");
-    }
-    mvwprintw(app->status_win, 2, 1, "(q) to exit");
-    break;
-  case CAW_Sidebar:
-    wattron(app->sidebar_win, COLOR_PAIR(4));
-    box(app->sidebar_win, 0, 0);
-    wattroff(app->sidebar_win, COLOR_PAIR(4));
-    mvwprintw(app->sidebar_win, 0, 0, " Client List (%d)", app->client_count);
-    break;
+  // Draw status window
+  box(app->status_win, 0, 0);
+
+  if (app->current_status != NULL) {
+    mvwprintw(app->status_win, 1, 1, "Status: %s", app->current_status);
+  } else {
+    mvwprintw(app->status_win, 1, 1, "Status: <...>");
   }
+  mvwprintw(app->status_win, 2, 1, "(q) to exit");
+  wbkgd(app->status_win, COLOR_PAIR(3));
+
+  wnoutrefresh(app->message_win);
+  wnoutrefresh(app->input_win);
+  wnoutrefresh(app->status_win);
+  wnoutrefresh(app->sidebar_win);
+
+  doupdate();
+}
+
+void update_ui(App *app) 
+{
+  gettimeofday(&app->current_time, NULL);
+
+  long elasped_time = (app->current_time.tv_sec - app->last_update.tv_sec) * 1000000 +
+                      (app->current_time.tv_usec - app->last_update.tv_usec);
+
+  int needs_update = (
+    app->last_selected_client != app->selected_client ||
+    app->last_active_win != app->current_active_win ||
+    elasped_time >= 100000 
+  );
   
-  display_clients(app);
-  display_messages(app);
+  if (needs_update) {
+    
+    werase(app->sidebar_win);
+    werase(app->message_win);
+    werase(app->input_win);
+    werase(app->status_win);
+    
+    // Draw more stuff depending on which window is active
+    switch (app->current_active_win) {
+    case CAW_Message:
+      wattron(app->message_win, COLOR_PAIR(4));
+      box(app->message_win, 0, 0);
+      wattroff(app->message_win, COLOR_PAIR(4));
+      break;
+    case CAW_Input:
+      wattron(app->input_win, COLOR_PAIR(4));
+      box(app->input_win, 0, 0);
+      wattroff(app->input_win, COLOR_PAIR(4));
+      break;
+    case CAW_Status:
+      wattron(app->status_win, COLOR_PAIR(4));
+      box(app->status_win, 0, 0);
+      wattroff(app->status_win, COLOR_PAIR(4));
+      if (app->current_status != NULL) {
+        mvwprintw(app->status_win, 1, 1, "Status: %s", app->current_status);
+      } else {
+        mvwprintw(app->status_win, 1, 1, "Status: <...>");
+      }
+      mvwprintw(app->status_win, 2, 1, "(q) to exit");
+      break;
+    case CAW_Sidebar:
+      wattron(app->sidebar_win, COLOR_PAIR(4));
+      box(app->sidebar_win, 0, 0);
+      wattroff(app->sidebar_win, COLOR_PAIR(4));
+      mvwprintw(app->sidebar_win, 0, 0, " Client List (%d)", app->client_count);
+      break;
+    }
   
-  refresh();
-  wrefresh(app->message_win);
-  wrefresh(app->input_win);
-  wrefresh(app->status_win);
-  wrefresh(app->sidebar_win);
+    // Display clients on sidebar window
+    display_clients(app);
+    // Display messages on message window
+    display_messages(app);
+  
+    wnoutrefresh(app->message_win);
+    wnoutrefresh(app->input_win);
+    wnoutrefresh(app->status_win);
+    wnoutrefresh(app->sidebar_win);
+
+    doupdate();
+
+    app->last_selected_client = app->selected_client;
+    app->last_active_win = app->current_active_win;
+    app->last_update = app->current_time;
+  }
 }
 
 void update_status(App *app, const char *status)

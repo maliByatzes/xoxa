@@ -4,6 +4,7 @@
 #include "ui.h"
 #include "client.h"
 #include <pthread.h>
+#include <sys/time.h>
 
 App *new_app() 
 {
@@ -11,11 +12,13 @@ App *new_app()
 
   app->client_count = 0;
   app->selected_client = 0;
+  app->last_selected_client = -1;
   app->current_active_win = CAW_Sidebar;
+  app->last_active_win = -1;
 
   app->current_client = NULL;
   app->current_status = NULL;
-
+  
   app->cfg = load_config();
 
   if (!validate_config(app->cfg)) {
@@ -32,9 +35,7 @@ App *new_app()
 }
 
 int run_app(App *app) 
-{
-  init_ui();
-  
+{  
   pthread_t event_handling_thread, ui_thread;
   pthread_create(&event_handling_thread, NULL, event_handling, app);
   pthread_create(&ui_thread, NULL, ui_handling, app);
@@ -54,13 +55,20 @@ void *event_handling(void *arg)
   local_running = app->running;
   pthread_mutex_unlock(&app->mutex);
   
-  while (app->running) {
+  while (local_running) {
+    pthread_mutex_lock(&app->mutex);
+    local_running = app->running;
+    pthread_mutex_unlock(&app->mutex);
+    
     // Event handling...
     int ch = getch();
     if (ch != ERR) {
       int res = handle_key(app, ch);
       if (res == 1) {
-        return 0;
+        pthread_mutex_lock(&app->mutex);
+        app->running = 0;
+        pthread_mutex_unlock(&app->mutex);
+        return NULL;
       }
     }
 
@@ -74,8 +82,10 @@ void *ui_handling(void *arg)
 {
   App *app = (App *)arg;
 
+  draw_ui(app);
+
   while (app->running) {
-    draw_ui(app);
+    // update_ui(app);
     if (read_from_socket(app)) {
       return NULL; // FIXME: This is wrong
     }

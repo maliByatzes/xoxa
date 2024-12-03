@@ -40,13 +40,18 @@ typedef struct App_ {
   Client *clients;
   int client_count;
   int selected_client;
+  int last_selected_client;
   int sidebar_scroll;
+
+  struct timeval last_update;
+  struct timeval current_time;
     
   Client *current_client;
   
   const char *current_status;
   
   CurrentActiveWindow current_active_win;
+  CurrentActiveWindow last_active_win;
   
   Config *cfg;
 
