@@ -14,7 +14,7 @@ App *new_app()
   app->selected_client = 0;
   app->last_selected_client = -1;
   app->current_active_win = CAW_Sidebar;
-  app->last_active_win = -1;
+  // app->last_active_win = -1;
 
   app->current_client = NULL;
   app->current_status = NULL;
@@ -28,24 +28,47 @@ App *new_app()
 
   app->clients = (Client *)calloc(sizeof(Client), MAX_CLIENTS);
 
-  app->running = 1;
-  pthread_mutex_init(&app->mutex, NULL);
+  // app->running = 1;
+  // pthread_mutex_init(&app->mutex, NULL);
   
   return app;
 }
 
 int run_app(App *app) 
 {  
+  /*
   pthread_t event_handling_thread, ui_thread;
   pthread_create(&event_handling_thread, NULL, event_handling, app);
   pthread_create(&ui_thread, NULL, ui_handling, app);
 
   pthread_join(event_handling_thread, NULL);
   pthread_join(ui_thread, NULL);
-  
+  */
+
+  draw_ui(app);
+
+  while (app->running) {
+    update_ui(app);
+    if (read_from_socket(app)) {
+      return 1;
+    }
+
+    // Event handling
+    int ch = getch();
+    if (ch != ERR) {
+      int res = handle_key(app, ch);
+      if (res == 1) {
+        return 0;
+      }
+    }
+    
+    // usleep(100000);
+  }
+
   return 0;
 }
 
+/*
 void *event_handling(void *arg) 
 {
   App *app = (App *)arg;
@@ -94,7 +117,7 @@ void *ui_handling(void *arg)
   }
 
   return NULL;
-}
+}*/
 
 int handle_key(App *app, int ch) 
 {
@@ -185,7 +208,7 @@ void toggle_active_window(App *app)
 
 void free_app(App *app) 
 {
-  pthread_mutex_destroy(&app->mutex);
+  // pthread_mutex_destroy(&app->mutex);
   free(app->clients);
   free_config(app->cfg);
   free(app);

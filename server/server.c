@@ -247,7 +247,7 @@ void run_server(SOCKET connfd, sqlite3 *db)
           memset(client_name, 0, sizeof(client_name));
           recv(clientfd, client_name, 100, 0);
           log_message(info, "Client's name: %s", client_name);
-
+          
           // Check if client's name exists in the users table already
           UserFilter filter = {0};
           filter.name = client_name;

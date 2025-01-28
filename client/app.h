@@ -58,7 +58,7 @@ typedef struct App_ {
   SOCKET socket_peer;
 
   int running;
-  pthread_mutex_t mutex;
+  // pthread_mutex_t mutex;
 } App;
 
 App *new_app();
